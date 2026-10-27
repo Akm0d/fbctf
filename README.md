@@ -1,5 +1,10 @@
 # FBCTF [![Build Status](https://travis-ci.org/facebook/fbctf.svg)](https://travis-ci.org/facebook/fbctf)
 
+> This repository includes a loopback-only compatibility deployment for modern
+> Linux hosts. See [docs/RESTORATION.md](docs/RESTORATION.md). It intentionally
+> isolates the unsupported HHVM 3.30 runtime and is an interim restoration, not
+> a completed native modernization.
+
 ## What is FBCTF?
 
 The Facebook CTF is a platform to host Jeopardy and “King of the Hill” style Capture the Flag competitions.
