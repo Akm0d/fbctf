@@ -32,7 +32,14 @@ class ListviewController extends ModuleController {
           <span class="fb-status status--open">{tr('Open')}</span>;
       }
       $listview_table->appendChild(
-        <tr data-country={$country->getName()}>
+        <tr
+          data-country={$country->getName()}
+          data-category={$category->getCategory()}
+          data-status={$previous_score ? 'completed' : 'remaining'}
+          data-captured={$previous_score ? SessionUtils::sessionTeamName() : null}
+          class={$previous_score ? 'captured--you' : ''}
+          role="button"
+          tabindex="0">
           <td style="width: 38%;">
             {$country->getName()} ({$level->getTitle()})
           </td>

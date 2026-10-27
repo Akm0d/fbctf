@@ -80,9 +80,6 @@ class GameboardController extends Controller {
                 Stage: {$stage_label}
               </li>
               <li>
-                <a href="/index.php?p=contests">{tr('Contests')}</a>
-              </li>
-              <li>
                 <a href="#" class="js-launch-modal" data-modal="scoreboard">
                   {tr('Scoreboard')}
                 </a>

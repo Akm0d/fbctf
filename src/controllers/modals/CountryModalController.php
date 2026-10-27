@@ -99,11 +99,11 @@ class CountryModalController extends ModalController {
                       type="text"
                       autocomplete="off"
                     />
-                    <div class="answer-scan-actions">
-                      <button type="button" class="fb-cta cta--blue js-scan-qr">
+                    <div class="answer-scan-actions completely-hidden">
+                      <button type="button" class="fb-cta cta--blue js-scan-qr completely-hidden">
                         Scan QR
                       </button>
-                      <button type="button" class="fb-cta cta--blue js-scan-nfc">
+                      <button type="button" class="fb-cta cta--blue js-scan-nfc completely-hidden">
                         Scan NFC
                       </button>
                     </div>

@@ -1025,6 +1025,20 @@ body[data-section="gameboard"] .fb-page {
       outline: 1px solid $yellow;
     }
 
+    tr {
+      cursor: pointer;
+      touch-action: pan-y;
+    }
+
+    tr:focus {
+      outline: 2px solid $yellow;
+      outline-offset: 2px;
+    }
+
+    tr.filter-hidden {
+      display: none;
+    }
+
     td {
       padding: 20px;
 
@@ -1054,12 +1068,11 @@ body[data-section="gameboard"] .fb-page {
       }
     }
 
-    tr:not(.help-enabled):not(.captured--you) td,
+    tr:not(.help-enabled) td,
     tr.help-enabled td:nth-child(4) {
       cursor: pointer;
     }
 
-    tr.captured--you td:nth-child(-n+3),
     tr.help-enabled td:nth-child(-n+3),
     tr.inactive td {
       opacity: .4;

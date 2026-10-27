@@ -8,6 +8,7 @@ var Modal = require('./modal');
 var Slider = require('./slider');
 var Clock = require('./clock');
 var Graphics = require('./graphics');
+var ScanInput = require('./scan-input');
 
 var d3 = require('d3');
 var $ = require('jquery');
@@ -123,6 +124,13 @@ function setupInputListeners() {
           countryGroup.classed('highlighted', false);
           countryGroup.classed('inactive', true);
         }
+      }
+    });
+
+    $('tr', $('.fb-listview')).each(function() {
+      var $row = $(this).removeClass('filter-hidden');
+      if (value !== 'all' && $row.attr('data-' + inputName) !== value) {
+        $row.addClass('filter-hidden');
       }
     });
   }
@@ -973,6 +981,7 @@ function setupInputListeners() {
         $('.country-type', $container).text(type);
         $('.country-category', $container).text(category);
         $('.country-owner', $container).text(owner);
+        ScanInput.configureForCategory($container, category);
 
         if (completed instanceof Array) {
           $.each(completed, function() {
@@ -1895,22 +1904,20 @@ function setupInputListeners() {
      */
     function listviewEventListeners($listview) {
       //
-      // click on the row, engage the "capture_country"
-      //  modal, except for in a couple situations
+      // A row opens its challenge regardless of capture/help status. Dedicated
+      // help controls stop propagation below and keep their own behavior.
       //
-      $('tr', $listview).on('click', function(event) {
+      $('tr', $listview).on('click keydown', function(event) {
+        if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') {
+          return;
+        }
+        if ($(event.target).closest('.status--incoming-help, .status--give-help, .status--timer').length) {
+          return;
+        }
         event.preventDefault();
         var $tr = $(this).closest('tr'),
             country = $tr.data('country');
-
-        //
-        // try to capture the country if:
-        //   - the country is not using help
-        //   - the country is NOT captured
-        //
-        if (!$tr.hasClass('help-enabled') && $tr.data('captured') === undefined) {
-          captureCountry(country);
-        }
+        captureCountry(country);
       });
 
       //

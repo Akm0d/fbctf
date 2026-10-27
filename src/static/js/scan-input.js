@@ -23,6 +23,22 @@ function stopScanner($scope) {
   $('.qr-scanner', $scope).addClass('completely-hidden');
 }
 
+function configureForCategory($scope, category) {
+  stopScanner($scope);
+  var scannerCategory = String(category || '').trim().toUpperCase();
+  var $actions = $('.answer-scan-actions', $scope).addClass('completely-hidden');
+  var $qr = $('.js-scan-qr', $scope).addClass('completely-hidden');
+  var $nfc = $('.js-scan-nfc', $scope).addClass('completely-hidden');
+
+  if (scannerCategory === 'QR') {
+    $actions.removeClass('completely-hidden');
+    $qr.removeClass('completely-hidden');
+  } else if (scannerCategory === 'NFC') {
+    $actions.removeClass('completely-hidden');
+    $nfc.removeClass('completely-hidden');
+  }
+}
+
 function scanQr($scope) {
   stopScanner($scope);
   var $scanner = $('.qr-scanner', $scope).removeClass('completely-hidden');
@@ -83,6 +99,7 @@ function scanNfc($scope) {
 }
 
 module.exports = {
+  configureForCategory: configureForCategory,
   init: function() {
     $(document).on('click', '.js-scan-qr', function(event) {
       event.preventDefault();
