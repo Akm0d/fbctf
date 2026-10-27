@@ -5,6 +5,7 @@ var ready = false;
 var audioEnabled = false;
 var currentQueueId = 0;
 var currentVideoId = '';
+var pendingVideoId = '';
 var appliedVersion = -1;
 var clientKey = window.localStorage.getItem('fbctf-tv-key');
 
@@ -32,10 +33,15 @@ function reportFinished() {
   });
 }
 
-window.onYouTubeIframeAPIReady = function() {
+function createPlayer() {
+  if (player || !pendingVideoId || !window.YT || !window.YT.Player) {
+    return;
+  }
+  currentVideoId = pendingVideoId;
   player = new window.YT.Player('youtube-player', {
     width: '100%',
     height: '100%',
+    videoId: currentVideoId,
     playerVars: {autoplay: 0, controls: 1, rel: 0, playsinline: 1},
     events: {
       onReady: function() {
@@ -52,6 +58,10 @@ window.onYouTubeIframeAPIReady = function() {
       }
     }
   });
+}
+
+window.onYouTubeIframeAPIReady = function() {
+  createPlayer();
 };
 
 function renderList(selector, values, formatter) {
@@ -65,6 +75,8 @@ function applyData(data) {
   var version = parseInt(playback.command_version || 0, 10);
   var queueId = parseInt(playback.current_queue_id || 0, 10);
   var videoId = playback.youtube_id || '';
+  pendingVideoId = videoId;
+  createPlayer();
 
   $('.tv-song-title').text(playback.display_title || 'Nothing queued');
   $('.tv-request-team').text(parseInt(playback.is_karaoke || 0, 10) ? 'Karaoke: ' + (playback.team_name || '') : 'Party playlist');
@@ -93,19 +105,18 @@ function applyData(data) {
     return '<p>' + escapeText(item) + '</p>';
   });
 
-  if (!ready || !data.active_tv || version === appliedVersion) {
+  if (!ready) {
+    return;
+  }
+  if (videoId && videoId !== currentVideoId) {
+    currentVideoId = videoId;
+    player.cueVideoById(videoId);
+  }
+  if (!data.active_tv || version === appliedVersion) {
     return;
   }
   appliedVersion = version;
   currentQueueId = queueId;
-  if (videoId && videoId !== currentVideoId) {
-    currentVideoId = videoId;
-    if (playback.desired_state === 'playing' && audioEnabled) {
-      player.loadVideoById(videoId);
-    } else {
-      player.cueVideoById(videoId);
-    }
-  }
   if (playback.desired_state === 'playing' && audioEnabled) {
     player.playVideo();
   } else {

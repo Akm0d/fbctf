@@ -29,7 +29,7 @@ class MusicAdminAjaxController extends AjaxController {
     return array(
       'add_playlist', 'moderate_request', 'schedule_request',
       'move_queue', 'move_request', 'remove_queue', 'play_queue',
-      'playback', 'confirm_performance', 'configure_karaoke',
+      'replay_playlist', 'playback', 'confirm_performance', 'configure_karaoke',
     );
   }
 
@@ -51,6 +51,11 @@ class MusicAdminAjaxController extends AjaxController {
     }
     invariant($count > 0, 'Paste at least one YouTube URL');
     return $count;
+  }
+
+  private async function genReplayPlaylist(): Awaitable<string> {
+    await Music::genReplayPartyPlaylist();
+    return Utils::ok_response('Party playlist restarted from the beginning', 'admin');
   }
 
   <<__Override>>
@@ -84,6 +89,7 @@ class MusicAdminAjaxController extends AjaxController {
         case 'play_queue':
           await Music::genPlayQueueItem(must_have_int($params, 'queue_id'));
           return Utils::ok_response('Song sent to the TV', 'admin');
+        case 'replay_playlist': return await $this->genReplayPlaylist();
         case 'playback':
           await Music::genPlaybackCommand(must_have_string($params, 'command'));
           return Utils::ok_response('Playback command sent', 'admin');

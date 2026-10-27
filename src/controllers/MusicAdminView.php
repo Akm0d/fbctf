@@ -180,6 +180,10 @@ class MusicAdminView {
         </section>
         <section class="admin-box music-admin-section">
           <header class="admin-box-header"><h3>Playing queue</h3></header>
+          <p>Played songs stay in this list. Restarting resets the party songs and begins from the first one; guest requests remain scheduled separately.</p>
+          <div class="music-actions">
+            {self::actionForm('replay_playlist', 'Restart party playlist', array(), 'cta--yellow')}
+          </div>
           {$queue_rows}
         </section>
         <section class="admin-box music-admin-section">

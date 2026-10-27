@@ -192,8 +192,7 @@ def main() -> None:
         title=title, description="Choose the best costume.",
         entity_id=country_ids[0], category_id=category_id,
         submission_type="text", vote_points="10", winner_points="100",
-        voting_open="", voting_close="",
-        visible="1", active="1",
+        visible="1",
     )
     contest_id = sql(f"SELECT id FROM contests WHERE title='{title}'")[-1][0]
     for client, token, text in (
@@ -243,15 +242,15 @@ def main() -> None:
         },
     )
     expect(
-        third_session.get("result") == "ERROR" and "both voting sessions" in str(third_session.get("message")),
-        "a team cannot vote from more than two sessions",
+        third_session.get("result") == "ERROR" and "configured voting sessions" in str(third_session.get("message")),
+        "a team cannot exceed its configured session-vote cap",
     )
     vote_rows = sql(
         "SELECT COUNT(*),COUNT(DISTINCT voter_session_key),COUNT(DISTINCT voter_team_id) "
         "FROM contest_session_votes "
         f"WHERE contest_id={contest_id}"
     )
-    expect(vote_rows == [["2", "2", "1"]], "database enforces one vote per session and two per team")
+    expect(vote_rows == [["2", "2", "1"]], "database enforces one vote per session and the team-size cap")
     points_a = sql(f"SELECT points FROM teams WHERE id={ids[team_a]}")[0][0]
     expect(points_a == "20", "two player sessions earn two voting rewards for one team")
 
@@ -273,7 +272,11 @@ def main() -> None:
         contest_id=contest_id, title=title, description="Choose the best costume.",
         entity_id=country_ids[0], category_id=category_id,
         submission_type="text", vote_points="10", winner_points="100",
-        voting_open="", voting_close="",
+        visible="1",
+    )
+    action(
+        admin, "/index.php?p=admin&ajax=true", admin_token,
+        "change_configuration", field="game", value="0",
     )
     action(
         admin, "/index.php?p=contest-admin&ajax=true", admin_token, "finalize_contest",
@@ -283,9 +286,14 @@ def main() -> None:
         admin, "/index.php?p=contest-admin&ajax=true", admin_token, "finalize_contest",
         contest_id=contest_id, entry_id=entry_b,
     )
-    expect("already finalized" in str(duplicate_winner.get("message")), "winner reward is idempotent")
+    expect("already awarded" in str(duplicate_winner.get("message")), "winner reward is idempotent")
     points_b = sql(f"SELECT points FROM teams WHERE id={ids[team_b]}")[0][0]
     expect(points_b == "100", "winner reward is awarded once at team level")
+
+    action(
+        admin, "/index.php?p=admin&ajax=true", admin_token,
+        "change_configuration", field="game", value="1",
+    )
 
     image_title = f"Funniest Picture {suffix}"
     action(
@@ -293,8 +301,7 @@ def main() -> None:
         title=image_title, description="Upload a party picture.",
         entity_id=country_ids[1], category_id=category_id,
         submission_type="image", vote_points="0", winner_points="0",
-        voting_open="", voting_close="",
-        visible="1", active="1",
+        visible="1",
     )
     image_contest_id = sql(f"SELECT id FROM contests WHERE title='{image_title}'")[-1][0]
     upload = player_b.post_file(

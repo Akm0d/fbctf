@@ -77,8 +77,8 @@ class TvController extends Controller {
     return
       <body data-section="tv">
         <div id="fb-main-content">{$content}</div>
-        <script type="text/javascript" src="https://www.youtube.com/iframe_api"></script>
         <script type="text/javascript" src="static/dist/js/app.js"></script>
+        <script type="text/javascript" src="https://www.youtube.com/iframe_api"></script>
       </body>;
   }
 }

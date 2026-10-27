@@ -19,18 +19,6 @@ class ContestController extends Controller {
     return array('main');
   }
 
-  private function windowOpen(
-    Map<string, string> $contest,
-    string $open_field,
-    string $close_field,
-  ): bool {
-    $now = time();
-    $open = strval(idx($contest, $open_field, ''));
-    $close = strval(idx($contest, $close_field, ''));
-    return ($open === '' || strtotime($open) <= $now) &&
-      ($close === '' || strtotime($close) > $now);
-  }
-
   private function renderEntry(
     Map<string, string> $entry,
     Map<string, string> $contest,
@@ -86,14 +74,9 @@ class ContestController extends Controller {
     bool $game_running,
   ): Awaitable<:xhp> {
     $contest_id = intval(must_have_idx($contest, 'id'));
-    $active = boolval(must_have_idx($contest, 'active'));
-    $finalized = boolval(must_have_idx($contest, 'finalized'));
-    $submission_open = $active && !$finalized && $game_running;
-    $voting_open = $active && !$finalized && $this->windowOpen(
-      $contest,
-      'voting_open_ts',
-      'voting_close_ts',
-    );
+    $winner_awarded = boolval(must_have_idx($contest, 'finalized'));
+    $submission_open = $game_running;
+    $voting_open = $game_running;
     $entries = await Contest::genEntries($contest_id);
     $own_entry = await Contest::genEntryForTeam($contest_id, SessionUtils::sessionTeam());
     $current_vote = null;
@@ -151,7 +134,7 @@ class ContestController extends Controller {
           $contest,
           $current_vote,
           $voting_open,
-          !$voting_open || $finalized,
+          !$voting_open || $winner_awarded,
         ),
       );
     }
@@ -159,7 +142,7 @@ class ContestController extends Controller {
       $entry_cards->appendChild(<p>No entries yet.</p>);
     }
 
-    $winner = $finalized
+    $winner = $winner_awarded
       ? <p class="contest-winner">Winner: {must_have_idx($contest, 'winning_team_name')}</p>
       : <p></p>;
     return
@@ -170,17 +153,17 @@ class ContestController extends Controller {
             <h2>{must_have_idx($contest, 'title')}</h2>
             <p class="contest-country">{must_have_idx($contest, 'country_name')}</p>
           </div>
-          <span class={'contest-status '.($active ? 'is-open' : 'is-closed')}>
-            {$finalized ? 'Finalized' : ($active ? 'Open' : 'Closed')}
+          <span class={'contest-status '.($game_running ? 'is-open' : 'is-closed')}>
+            {$game_running ? 'Open' : 'Game over'}
           </span>
         </header>
         <p>{must_have_idx($contest, 'description')}</p>
         <p class="contest-rewards">
-          One vote per phone/browser session (maximum two per team) ·
+          One vote per phone/browser session (capped by the team size) ·
           Vote reward: {must_have_idx($contest, 'vote_points')} points ·
           Winner reward: {must_have_idx($contest, 'winner_points')} points
         </p>
-        <p class="contest-help">Team submissions stay open while the game is running and close when it ends.</p>
+        <p class="contest-help">Team submissions and voting stay open while the game is running and close when it ends.</p>
         {$winner}
         {$entry_form}
         <h3>Entries</h3>

@@ -216,6 +216,10 @@ def main() -> None:
             },
         )
         expect(finished["result"] == "OK", "TV completion advances the queue")
+        expect(
+            sql(f"SELECT status FROM music_queue WHERE id={current_id}") == [["played"]],
+            "completed party songs remain in the persistent playlist",
+        )
         duplicate = tv_client.post(
             "/data/music-tv.php",
             {
@@ -224,6 +228,12 @@ def main() -> None:
             },
         )
         expect(duplicate["result"] == "IGNORED", "duplicate TV completion cannot advance twice")
+        action(admin, endpoint, admin_csrf, "replay_playlist")
+        expect(
+            sql("SELECT display_title FROM music_queue WHERE status='playing'")
+            == [["Never Gonna Give You Up"]],
+            "party playlist can restart from its configured beginning",
+        )
 
         action(admin, endpoint, admin_csrf, "configure_karaoke", performance_points=50, passive_points=5, enabled="1", activity_country=0, stage_country=0, category_id=0)
         karaoke_rows = sql("SELECT id,request_team_id FROM music_queue WHERE is_karaoke=1 ORDER BY id")

@@ -16,10 +16,7 @@ class ContestAdminAjaxController extends AjaxController {
         'submission_type' => FILTER_UNSAFE_RAW,
         'vote_points' => FILTER_VALIDATE_INT,
         'winner_points' => FILTER_VALIDATE_INT,
-        'voting_open' => FILTER_UNSAFE_RAW,
-        'voting_close' => FILTER_UNSAFE_RAW,
         'visible' => FILTER_VALIDATE_BOOLEAN,
-        'active' => FILTER_VALIDATE_BOOLEAN,
       ),
     );
   }
@@ -32,16 +29,6 @@ class ContestAdminAjaxController extends AjaxController {
       'finalize_contest',
       'delete_contest',
     );
-  }
-
-  private function normalizeDate(string $value): string {
-    $value = trim($value);
-    if ($value === '') {
-      return '';
-    }
-    $timestamp = strtotime($value);
-    invariant($timestamp !== false, 'Invalid date or time');
-    return date('Y-m-d H:i:s', $timestamp);
   }
 
   private async function genSaveContest(
@@ -57,22 +44,17 @@ class ContestAdminAjaxController extends AjaxController {
     $submission_type = must_have_string($params, 'submission_type');
     $vote_points = intval(idx($params, 'vote_points', 0));
     $winner_points = intval(idx($params, 'winner_points', 0));
-    $voting_open = $this->normalizeDate(strval(idx($params, 'voting_open', '')));
-    $voting_close = $this->normalizeDate(strval(idx($params, 'voting_close', '')));
     $visible = boolval(idx($params, 'visible', false));
-    $active = boolval(idx($params, 'active', false));
     if ($create) {
       await Contest::genCreate(
         $title, $description, $entity_id, $category_id, $submission_type,
-        $vote_points, $winner_points,
-        $voting_open, $voting_close, $visible, $active,
+        $vote_points, $winner_points, $visible,
       );
     } else {
       await Contest::genUpdate(
         must_have_int($params, 'contest_id'),
         $title, $description, $entity_id, $category_id, $submission_type,
-        $vote_points, $winner_points,
-        $voting_open, $voting_close, $visible, $active,
+        $vote_points, $winner_points, $visible,
       );
     }
   }
@@ -99,7 +81,7 @@ class ContestAdminAjaxController extends AjaxController {
             must_have_int($params, 'entry_id'),
           );
           return Utils::ok_response(
-            $awarded ? 'Winner finalized and points awarded' : 'Contest was already finalized',
+            $awarded ? 'Winner points awarded' : 'Winner points were already awarded',
             'admin',
           );
         case 'delete_contest':

@@ -44,10 +44,9 @@ class Music extends Model {
   public static async function genQueue(): Awaitable<array<Map<string, string>>> {
     $db = await self::genDb();
     $result = await $db->queryf(
-      'SELECT q.*, COALESCE(t.name, %s) AS team_name FROM music_queue q LEFT JOIN teams t ON t.id = q.request_team_id WHERE q.status IN (%s, %s) ORDER BY q.position, q.id',
+      'SELECT q.*, COALESCE(t.name, %s) AS team_name FROM music_queue q LEFT JOIN teams t ON t.id = q.request_team_id WHERE q.status <> %s ORDER BY q.position, q.id',
       '',
-      'playing',
-      'queued',
+      'removed',
     );
     return $result->mapRows()->toArray();
   }
@@ -330,12 +329,12 @@ class Music extends Model {
     try {
       $state = await $db->queryf('SELECT current_queue_id FROM music_playback_state WHERE id = 1 FOR UPDATE');
       $old_id = intval(idx($state->mapRows()[0], 'current_queue_id', 0));
-      $item = await $db->queryf('SELECT id FROM music_queue WHERE id = %d AND status IN (%s, %s) FOR UPDATE', $queue_id, 'queued', 'playing');
+      $item = await $db->queryf('SELECT id FROM music_queue WHERE id = %d AND status IN (%s, %s, %s, %s) FOR UPDATE', $queue_id, 'queued', 'playing', 'played', 'skipped');
       invariant($item->numRows() === 1, 'Queue item is not playable');
       if ($old_id > 0 && $old_id !== $queue_id) {
         await $db->queryf('UPDATE music_queue SET status = %s, finished_ts = NOW() WHERE id = %d AND status = %s', 'skipped', $old_id, 'playing');
       }
-      await $db->queryf('UPDATE music_queue SET status = %s, started_ts = COALESCE(started_ts, NOW()) WHERE id = %d', 'playing', $queue_id);
+      await $db->queryf('UPDATE music_queue SET status = %s, started_ts = NOW(), finished_ts = NULL WHERE id = %d', 'playing', $queue_id);
       await $db->queryf('UPDATE music_playback_state SET current_queue_id = %d, desired_state = %s, command_version = command_version + 1 WHERE id = 1', $queue_id, 'playing');
       await $db->queryf('COMMIT');
     } catch (Exception $error) {
@@ -350,7 +349,53 @@ class Music extends Model {
       await self::genPlaybackCommand('skip');
     }
     $db = await self::genDb();
-    await $db->queryf('UPDATE music_queue SET status = %s WHERE id = %d AND status IN (%s, %s)', 'removed', $queue_id, 'queued', 'skipped');
+    await $db->queryf('UPDATE music_queue SET status = %s WHERE id = %d AND status IN (%s, %s, %s)', 'removed', $queue_id, 'queued', 'skipped', 'played');
+  }
+
+  public static async function genReplayPartyPlaylist(): Awaitable<void> {
+    $db = await self::genDb();
+    await $db->queryf('START TRANSACTION');
+    try {
+      $state = await $db->queryf(
+        'SELECT current_queue_id FROM music_playback_state WHERE id = 1 FOR UPDATE',
+      );
+      $current_id = intval(idx($state->mapRows()[0], 'current_queue_id', 0));
+      if ($current_id > 0) {
+        await $db->queryf(
+          'UPDATE music_queue SET status = %s, finished_ts = NOW() WHERE id = %d AND status = %s',
+          'skipped',
+          $current_id,
+          'playing',
+        );
+      }
+      await $db->queryf(
+        'UPDATE music_queue SET status = %s, started_ts = NULL, finished_ts = NULL WHERE source_type = %s AND status <> %s',
+        'queued',
+        'admin',
+        'removed',
+      );
+      $first = await $db->queryf(
+        'SELECT id FROM music_queue WHERE source_type = %s AND status = %s ORDER BY position, id LIMIT 1 FOR UPDATE',
+        'admin',
+        'queued',
+      );
+      invariant($first->numRows() === 1, 'The party playlist is empty');
+      $first_id = intval(must_have_idx($first->mapRows()[0], 'id'));
+      await $db->queryf(
+        'UPDATE music_queue SET status = %s, started_ts = NOW() WHERE id = %d',
+        'playing',
+        $first_id,
+      );
+      await $db->queryf(
+        'UPDATE music_playback_state SET current_queue_id = %d, desired_state = %s, command_version = command_version + 1 WHERE id = 1',
+        $first_id,
+        'playing',
+      );
+      await $db->queryf('COMMIT');
+    } catch (Exception $error) {
+      await $db->queryf('ROLLBACK');
+      throw $error;
+    }
   }
 
   private static function validTvKey(string $key): bool {

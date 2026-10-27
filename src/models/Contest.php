@@ -97,10 +97,7 @@ class Contest extends Model {
     string $submission_type,
     int $vote_points,
     int $winner_points,
-    string $voting_open,
-    string $voting_close,
     bool $visible,
-    bool $active,
   ): Awaitable<int> {
     invariant($submission_type === 'text' || $submission_type === 'image', 'Invalid submission type');
     invariant($vote_points >= 0 && $winner_points >= 0, 'Points cannot be negative');
@@ -109,10 +106,10 @@ class Contest extends Model {
       'poll', trim($title), trim($description), $entity_id, $category_id,
       0, 0, 0, 0, '', '', 0,
     );
-    await Level::genSetStatus($level_id, $visible && $active);
+    await Level::genSetStatus($level_id, $visible);
     $db = await self::genDb();
     await $db->queryf(
-      'INSERT INTO contests (level_id, title, description, category_id, submission_type, vote_points, winner_points, submission_open_ts, submission_close_ts, voting_open_ts, voting_close_ts, visible, active) VALUES (%d, %s, %s, NULLIF(%d, 0), %s, %d, %d, NULL, NULL, NULLIF(%s, %s), NULLIF(%s, %s), %d, %d)',
+      'INSERT INTO contests (level_id, title, description, category_id, submission_type, vote_points, winner_points, submission_open_ts, submission_close_ts, voting_open_ts, voting_close_ts, visible, active) VALUES (%d, %s, %s, NULLIF(%d, 0), %s, %d, %d, NULL, NULL, NULL, NULL, %d, 1)',
       $level_id,
       trim($title),
       trim($description),
@@ -120,12 +117,7 @@ class Contest extends Model {
       $submission_type,
       $vote_points,
       $winner_points,
-      $voting_open,
-      '',
-      $voting_close,
-      '',
       $visible ? 1 : 0,
-      $active ? 1 : 0,
     );
     $result = await $db->queryf('SELECT LAST_INSERT_ID() AS id');
     return intval(must_have_idx($result->mapRows()[0], 'id'));
@@ -140,20 +132,17 @@ class Contest extends Model {
     string $submission_type,
     int $vote_points,
     int $winner_points,
-    string $voting_open,
-    string $voting_close,
     bool $visible,
-    bool $active,
   ): Awaitable<void> {
     invariant($submission_type === 'text' || $submission_type === 'image', 'Invalid submission type');
     invariant($vote_points >= 0 && $winner_points >= 0, 'Points cannot be negative');
     invariant($entity_id > 0, 'Choose a country for the contest');
     $db = await self::genDb();
     $current = await $db->queryf(
-      'SELECT level_id FROM contests WHERE id = %d AND finalized = 0 LIMIT 1',
+      'SELECT level_id FROM contests WHERE id = %d LIMIT 1',
       $contest_id,
     );
-    invariant($current->numRows() === 1, 'Contest is finalized or missing');
+    invariant($current->numRows() === 1, 'Contest is missing');
     $level_id = intval(idx($current->mapRows()[0], 'level_id', 0));
     if ($level_id === 0) {
       $level_id = await Level::genCreate(
@@ -166,9 +155,9 @@ class Contest extends Model {
         0, 0, 0, 0, '', '', 0, $level_id,
       );
     }
-    await Level::genSetStatus($level_id, $visible && $active);
+    await Level::genSetStatus($level_id, $visible);
     await $db->queryf(
-      'UPDATE contests SET level_id = %d, title = %s, description = %s, category_id = NULLIF(%d, 0), submission_type = %s, vote_points = %d, winner_points = %d, submission_open_ts = NULL, submission_close_ts = NULL, voting_open_ts = NULLIF(%s, %s), voting_close_ts = NULLIF(%s, %s), visible = %d, active = %d WHERE id = %d AND finalized = 0',
+      'UPDATE contests SET level_id = %d, title = %s, description = %s, category_id = NULLIF(%d, 0), submission_type = %s, vote_points = %d, winner_points = %d, submission_open_ts = NULL, submission_close_ts = NULL, voting_open_ts = NULL, voting_close_ts = NULL, visible = %d, active = 1 WHERE id = %d',
       $level_id,
       trim($title),
       trim($description),
@@ -176,12 +165,7 @@ class Contest extends Model {
       $submission_type,
       $vote_points,
       $winner_points,
-      $voting_open,
-      '',
-      $voting_close,
-      '',
       $visible ? 1 : 0,
-      $active ? 1 : 0,
       $contest_id,
     );
   }
@@ -194,7 +178,7 @@ class Contest extends Model {
     $game_running = await self::genGameRunning();
     invariant($game_running, 'Submissions are open only while the game is running');
     $result = await $db->queryf(
-      'SELECT id FROM contests WHERE id = %d AND active = 1 AND visible = 1 AND finalized = 0 AND submission_type = %s LIMIT 1',
+      'SELECT id FROM contests WHERE id = %d AND visible = 1 AND submission_type = %s LIMIT 1',
       $contest_id,
       $submission_type,
     );
@@ -285,11 +269,13 @@ class Contest extends Model {
     int $team_id,
     string $session_key,
   ): Awaitable<bool> {
+    $game_running = await self::genGameRunning();
+    invariant($game_running, 'Voting is open only while the game is running');
     $db = await self::genDb();
     await $db->queryf('START TRANSACTION');
     try {
       $contest_result = await $db->queryf(
-        'SELECT vote_points FROM contests WHERE id = %d AND active = 1 AND visible = 1 AND finalized = 0 AND (voting_open_ts IS NULL OR voting_open_ts <= NOW()) AND (voting_close_ts IS NULL OR voting_close_ts > NOW()) FOR UPDATE',
+        'SELECT vote_points FROM contests WHERE id = %d AND visible = 1 FOR UPDATE',
         $contest_id,
       );
       invariant($contest_result->numRows() === 1, 'Voting is closed');
@@ -376,16 +362,18 @@ class Contest extends Model {
     int $contest_id,
     int $entry_id,
   ): Awaitable<bool> {
+    $game_running = await self::genGameRunning();
+    invariant(!$game_running, 'Winner points can be awarded after the game ends');
     $db = await self::genDb();
     await $db->queryf('START TRANSACTION');
     try {
       $contest_result = await $db->queryf(
-        'SELECT winner_points, finalized, level_id FROM contests WHERE id = %d AND (active = 0 OR (voting_close_ts IS NOT NULL AND voting_close_ts <= NOW())) FOR UPDATE',
+        'SELECT winner_points, finalized, level_id FROM contests WHERE id = %d FOR UPDATE',
         $contest_id,
       );
       invariant(
         $contest_result->numRows() === 1,
-        'Contest must be closed before a winner can be finalized',
+        'Contest not found',
       );
       if (boolval(must_have_idx($contest_result->mapRows()[0], 'finalized'))) {
         await $db->queryf('COMMIT');
@@ -416,15 +404,11 @@ class Contest extends Model {
         );
       }
       await $db->queryf(
-        'UPDATE contests SET finalized = 1, active = 0, winning_entry_id = %d WHERE id = %d',
+        'UPDATE contests SET finalized = 1, winning_entry_id = %d WHERE id = %d',
         $entry_id,
         $contest_id,
       );
       await $db->queryf('COMMIT');
-      $level_id = intval(idx($contest_result->mapRows()[0], 'level_id', 0));
-      if ($level_id > 0) {
-        await Level::genSetStatus($level_id, false);
-      }
       MultiTeam::invalidateMCRecords();
       return true;
     } catch (Exception $error) {

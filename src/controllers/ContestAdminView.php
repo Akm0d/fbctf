@@ -1,13 +1,6 @@
 <?hh // strict
 
 class ContestAdminView {
-  private static function htmlDate(string $value): string {
-    if ($value === '') {
-      return '';
-    }
-    return str_replace(' ', 'T', substr($value, 0, 16));
-  }
-
   private static function categorySelect(
     array<Category> $categories,
     int $selected,
@@ -60,11 +53,8 @@ class ContestAdminView {
     $submission_type = $is_new ? 'text' : must_have_idx($contest, 'submission_type');
     $vote_points = $is_new ? '10' : must_have_idx($contest, 'vote_points');
     $winner_points = $is_new ? '100' : must_have_idx($contest, 'winner_points');
-    $voting_open = $is_new ? '' : self::htmlDate(strval(idx($contest, 'voting_open_ts', '')));
-    $voting_close = $is_new ? '' : self::htmlDate(strval(idx($contest, 'voting_close_ts', '')));
     $visible = !$is_new && boolval(must_have_idx($contest, 'visible'));
-    $active = !$is_new && boolval(must_have_idx($contest, 'active'));
-    $finalized = !$is_new && boolval(must_have_idx($contest, 'finalized'));
+    $winner_awarded = !$is_new && boolval(must_have_idx($contest, 'finalized'));
 
     return
       <form class="contest-admin-form admin-box">
@@ -76,12 +66,12 @@ class ContestAdminView {
         <input type="hidden" name="contest_id" value={strval($id)} />
         <header class="admin-box-header">
           <h3>{$is_new ? 'Create Contest' : 'Contest #'.strval($id)}</h3>
-          <span>{$finalized ? 'Finalized' : ($active ? 'Open' : 'Closed')}</span>
+          <span>{$winner_awarded ? 'Winner points awarded' : 'Follows game status'}</span>
         </header>
         <div class="contest-admin-grid">
           <div class="form-el el--block-label el--full-text">
             <label>Title</label>
-            <input type="text" name="title" maxlength={200} value={$title} required={true} disabled={$finalized} />
+            <input type="text" name="title" maxlength={200} value={$title} required={true} />
           </div>
           <div class="form-el el--block-label el--full-text">
             <label>Country</label>
@@ -93,43 +83,32 @@ class ContestAdminView {
           </div>
           <div class="form-el el--block-label el--full-text contest-span-full">
             <label>Description</label>
-            <textarea name="description" rows={4} required={true} disabled={$finalized}>{$description}</textarea>
+            <textarea name="description" rows={4} required={true}>{$description}</textarea>
           </div>
           <div class="form-el el--block-label el--full-text">
             <label>Submission type</label>
-            <select name="submission_type" disabled={$finalized}>
+            <select name="submission_type">
               <option value="text" selected={$submission_type === 'text'}>Text</option>
               <option value="image" selected={$submission_type === 'image'}>Image</option>
             </select>
           </div>
           <div class="form-el el--block-label el--full-text">
             <label>Points per voter</label>
-            <input type="number" min="0" name="vote_points" value={$vote_points} required={true} disabled={$finalized} />
+            <input type="number" min="0" name="vote_points" value={$vote_points} required={true} />
           </div>
           <div class="form-el el--block-label el--full-text">
             <label>Winner points</label>
-            <input type="number" min="0" name="winner_points" value={$winner_points} required={true} disabled={$finalized} />
+            <input type="number" min="0" name="winner_points" value={$winner_points} required={true} />
           </div>
           <p class="contest-help contest-span-full">
-            Submissions follow the game clock: they open when the game starts and close when it ends.
+            Submissions and voting open when the game starts and close when it ends.
           </p>
-          <div class="form-el el--block-label el--full-text">
-            <label>Voting opens (UTC)</label>
-            <input type="datetime-local" name="voting_open" value={$voting_open} disabled={$finalized} />
-          </div>
-          <div class="form-el el--block-label el--full-text">
-            <label>Voting closes (UTC)</label>
-            <input type="datetime-local" name="voting_close" value={$voting_close} disabled={$finalized} />
-          </div>
           <label class="contest-check">
-            <input type="checkbox" name="visible" value="1" checked={$visible} disabled={$finalized} /> Visible
-          </label>
-          <label class="contest-check">
-            <input type="checkbox" name="active" value="1" checked={$active} disabled={$finalized} /> Active
+            <input type="checkbox" name="visible" value="1" checked={$visible} /> Visible
           </label>
         </div>
         <div class="admin-buttons admin-row">
-          <button class="fb-cta cta--yellow" type="submit" disabled={$finalized}>
+          <button class="fb-cta cta--yellow" type="submit">
             {$is_new ? 'Create contest' : 'Save contest'}
           </button>
         </div>
@@ -163,7 +142,7 @@ class ContestAdminView {
     if (count($entries) === 0) {
       $rankings->appendChild(<p>No entries yet.</p>);
     }
-    $finalize = boolval(must_have_idx($contest, 'finalized'))
+    $winner_award = boolval(must_have_idx($contest, 'finalized'))
       ? <p class="contest-winner">Winner: {must_have_idx($contest, 'winning_team_name')}</p>
       : <form class="contest-admin-form contest-finalize-form">
           <input type="hidden" name="action" value="finalize_contest" />
@@ -171,7 +150,7 @@ class ContestAdminView {
           {$winner_options}
           <p class="contest-help">Ties are shown above; choose the winner explicitly.</p>
           <button type="submit" class="fb-cta cta--yellow" disabled={count($entries) === 0}>
-            Finalize winner and award points once
+            Award winner points once
           </button>
         </form>;
     $delete =
@@ -187,7 +166,7 @@ class ContestAdminView {
         <section class="admin-box">
           <header class="admin-box-header"><h3>Vote rankings</h3></header>
           {$rankings}
-          {$finalize}
+          {$winner_award}
         </section>
       </div>;
   }
