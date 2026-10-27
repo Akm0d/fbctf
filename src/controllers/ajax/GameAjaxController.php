@@ -66,12 +66,15 @@ class GameAjaxController extends AjaxController {
             }
             return Utils::ok_response('Success', 'game');
           } else {
-            await FailureLog::genLogFailedScore(
-              $level_id,
-              SessionUtils::sessionTeam(),
-              $answer,
+            $team_id = SessionUtils::sessionTeam();
+            list($_, $penalty) = await \HH\Asio\va(
+              FailureLog::genLogFailedScore($level_id, $team_id, $answer),
+              Level::genPenalizeFailure($level_id, $team_id),
             );
-            return Utils::error_response('Failed', 'game');
+            $message = $penalty > 0
+              ? 'Failed (-'.strval($penalty).' points)'
+              : 'Failed';
+            return Utils::error_response($message, 'game');
           }
         } else {
           return Utils::error_response('Failed', 'game');

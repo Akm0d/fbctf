@@ -1003,13 +1003,26 @@ class Level extends Model implements Importable, Exportable {
     string $answer,
   ): Awaitable<bool> {
     $level = await self::gen($level_id);
-    $type = $level->getType();
-    if ($type === "flag") {
-      return trim($level->getFlag()) === trim($answer); // case sensitive
-    } else {
-      return
-        strtoupper(trim($level->getFlag())) === strtoupper(trim($answer)); // case insensitive
+    return strtoupper(trim($level->getFlag())) === strtoupper(trim($answer));
+  }
+
+  public static async function genPenalizeFailure(
+    int $level_id,
+    int $team_id,
+  ): Awaitable<int> {
+    $level = await self::gen($level_id);
+    $penalty = $level->getPenalty();
+    if ($penalty <= 0) {
+      return 0;
     }
+    $db = await self::genDb();
+    await $db->queryf(
+      'UPDATE teams SET points = GREATEST(points - %d, 0) WHERE id = %d LIMIT 1',
+      $penalty,
+      $team_id,
+    );
+    MultiTeam::invalidateMCRecords();
+    return $penalty;
   }
 
   // Adjust bonus.
