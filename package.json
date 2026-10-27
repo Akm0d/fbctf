@@ -2,22 +2,29 @@
   "name": "fbctf",
   "version": "0.0.1",
   "private": true,
+  "scripts": {
+    "build": "npm run build:js && npm run build:css",
+    "build:js": "mkdir -p src/static/dist/js && browserify src/static/js/app.js --debug -o src/static/dist/js/app.js",
+    "build:css": "sass --style=expanded --embed-sources src/static/css/scss/fb-ctf.scss src/static/css/fb-ctf.css"
+  },
   "devDependencies": {
-    "babel-eslint": "^6.0.4",
-    "babel-preset-react": "^6.5.0",
-    "babelify": "^7.3.0",
-    "eslint": "^2.9.0",
-    "eslint-plugin-flowtype": "^2.2.7",
-    "grunt": "^1.0.1",
-    "grunt-browserify": "^5.0.0",
-    "grunt-contrib-copy": "^1.0.0",
-    "grunt-contrib-uglify": "^1.0.1",
-    "grunt-contrib-watch": "^1.0.0",
-    "grunt-env": "^0.4.4",
-    "grunt-eslint": "^18.1.0",
-    "grunt-force-task": "^2.0.0",
-    "grunt-run": "^0.6.0",
-    "grunt-sass": "~1.2.0"
+    "@babel/core": "7.28.4",
+    "@babel/preset-flow": "7.27.1",
+    "babelify": "10.0.0",
+    "browserify": "17.0.1",
+    "sass": "1.93.2"
+  },
+  "browserify": {
+    "transform": [
+      [
+        "babelify",
+        {
+          "presets": [
+            "@babel/preset-flow"
+          ]
+        }
+      ]
+    ]
   },
   "dependencies": {
     "d3": "^3.5.16",

@@ -1,0 +1,93 @@
+name: fbctf
+
+services:
+  db:
+    image: mariadb:11.8.5@sha256:3a730f41f00d261df28a0bc1bc2845f9c0901c2e2f05e5005c7713cc43ebc1fe
+    restart: unless-stopped
+    command: ["--sql-mode=NO_ENGINE_SUBSTITUTION", "--character-set-server=latin1"]
+    environment:
+      MARIADB_DATABASE: fbctf
+      MARIADB_USER: fbctf
+      MARIADB_PASSWORD_FILE: /run/secrets/db_password
+      MARIADB_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
+    secrets:
+      - db_password
+      - db_root_password
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./database/countries.sql:/docker-entrypoint-initdb.d/02-countries.sql:ro
+      - ./database/logos.sql:/docker-entrypoint-initdb.d/03-logos.sql:ro
+      - ./.runtime/init/04-admin.sql:/docker-entrypoint-initdb.d/04-admin.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [backend]
+
+  cache:
+    image: memcached:1.6.39-alpine@sha256:aac456c35cd29635b5501fefac58a2e954752006c9d159fbf520dd785e09cbba
+    restart: unless-stopped
+    command: ["memcached", "-m", "64", "-I", "2m"]
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [backend]
+
+  app:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.compat
+      target: app
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_started
+    volumes:
+      - ./.runtime/settings.ini:/var/www/fbctf/settings.ini:ro
+      - attachments:/var/www/fbctf/attachments
+      - custom_logos:/var/www/fbctf/src/data/customlogos
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [backend]
+
+  web:
+    build:
+      context: .
+      dockerfile: deploy/docker/Dockerfile.compat
+      target: web
+    restart: unless-stopped
+    user: "101:101"
+    depends_on: [app]
+    ports:
+      - "127.0.0.1:${FBCTF_PORT:-8080}:8080"
+    volumes:
+      - attachments:/var/www/fbctf/attachments:ro
+      - custom_logos:/var/www/fbctf/src/data/customlogos:ro
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [frontend, backend]
+
+secrets:
+  db_password:
+    file: ./.runtime/secrets/db_password
+  db_root_password:
+    file: ./.runtime/secrets/db_root_password
+
+volumes:
+  db_data:
+  attachments:
+  custom_logos:
+
+networks:
+  frontend:
+  backend:
+    internal: true

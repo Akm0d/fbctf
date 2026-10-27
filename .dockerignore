@@ -1,3 +1,14 @@
+.git
 .gitignore
-LICENSE
+.runtime
+backups
+node_modules
+vendor
+reports
+.sass-cache
+src/static/build
+src/static/dist
+src/static/css/fb-ctf.css
+src/static/css/fb-ctf.css.map
+*.log
 screencapture.gif

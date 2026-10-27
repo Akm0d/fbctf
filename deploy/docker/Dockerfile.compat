@@ -1,0 +1,43 @@
+FROM node:24-bookworm-slim@sha256:2dd9a4f758e173b65fee15388f7706af6fb01ef50cf7a2c0538711d67a6981ae AS assets
+
+WORKDIR /build
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts --no-audit --no-fund
+COPY src/static ./src/static
+RUN npm run build
+
+FROM composer:1.10.26@sha256:bf4b0924aa48777890ec065d9cf0f23db6063b5988da3a8c4d59729e6f2cc7c7 AS composer
+
+FROM hhvm/hhvm@sha256:40e3a585d350bfdac45180364a4d352782fb7cbca05a7e0aa56d964262c9551e AS app
+
+ARG FBCTF_UID=10001
+ARG FBCTF_GID=10001
+
+ENV HOME=/tmp
+WORKDIR /var/www/fbctf
+
+RUN groupadd --gid "${FBCTF_GID}" fbctf \
+    && useradd --uid "${FBCTF_UID}" --gid "${FBCTF_GID}" --home-dir /nonexistent --shell /usr/sbin/nologin fbctf
+
+COPY --from=composer /usr/bin/composer /usr/local/bin/composer
+COPY . .
+COPY --from=assets /build/src/static/css/fb-ctf.css ./src/static/css/fb-ctf.css
+COPY --from=assets /build/src/static/css/fb-ctf.css.map ./src/static/css/fb-ctf.css.map
+COPY --from=assets /build/src/static/dist/js/app.js ./src/static/dist/js/app.js
+RUN hhvm /usr/local/bin/composer install --no-dev --prefer-dist --no-interaction --no-progress --classmap-authoritative \
+    && mkdir -p attachments/deleted src/data/customlogos \
+    && chown -R fbctf:fbctf attachments src/data/customlogos
+
+USER fbctf
+EXPOSE 9000
+CMD ["hhvm", "-m", "server", "-c", "/var/www/fbctf/deploy/docker/hhvm.ini"]
+
+FROM nginx:1.28.0-alpine@sha256:09ab424a8c788f8d0fe3a64429f6d19dfa526885c8609b748d0943a75dcb9f8c AS web
+
+COPY deploy/docker/nginx-main.conf /etc/nginx/nginx.conf
+COPY deploy/docker/nginx.conf /etc/nginx/conf.d/default.conf
+COPY src /var/www/fbctf/src
+RUN mkdir -p /var/www/fbctf/attachments/deleted /var/www/fbctf/src/data/customlogos
+COPY --from=assets /build/src/static/css/fb-ctf.css /var/www/fbctf/src/static/css/fb-ctf.css
+COPY --from=assets /build/src/static/css/fb-ctf.css.map /var/www/fbctf/src/static/css/fb-ctf.css.map
+COPY --from=assets /build/src/static/dist/js/app.js /var/www/fbctf/src/static/dist/js/app.js

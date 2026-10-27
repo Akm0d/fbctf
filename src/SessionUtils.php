@@ -3,7 +3,6 @@
 class SessionUtils {
   private static string $s_name = 'FBCTF';
   private static int $s_lifetime = 3600;
-  private static bool $s_secure = true;
   private static bool $s_httponly = true;
   private static string $s_path = '/';
 
@@ -22,11 +21,14 @@ class SessionUtils {
       array(__CLASS__, 'gc'),
     );
     session_name(self::$s_name);
+    $https = idx(Utils::getSERVER(), 'HTTPS');
+    $forwarded_proto = idx(Utils::getSERVER(), 'HTTP_X_FORWARDED_PROTO');
+    $secure = $https === 'on' || $forwarded_proto === 'https';
     session_set_cookie_params(
       self::$s_lifetime,
       self::$s_path,
-      must_have_string(Utils::getSERVER(), 'SERVER_NAME'),
-      self::$s_secure,
+      '',
+      $secure,
       self::$s_httponly,
     );
     session_start();
@@ -35,8 +37,8 @@ class SessionUtils {
       session_id(),
       time() + self::$s_lifetime,
       self::$s_path,
-      must_have_string(Utils::getSERVER(), 'SERVER_NAME'),
-      self::$s_secure,
+      '',
+      $secure,
       self::$s_httponly,
     );
   }

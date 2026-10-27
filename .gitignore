@@ -11,6 +11,10 @@
 # HHVM files
 www.pid
 
+# Local compatibility deployment state and secrets
+/.runtime/
+/backups/
+
 # Configuration files
 *.ini
 !tests/server.ini

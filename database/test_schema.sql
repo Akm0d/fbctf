@@ -346,6 +346,7 @@ CREATE TABLE `scores_log` (
   `level_id` int(11) NOT NULL,
   `type` varchar(4) NOT NULL,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `team_level` (`team_id`,`level_id`),
   KEY `level_id` (`level_id`),
   KEY `team_id` (`team_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1;

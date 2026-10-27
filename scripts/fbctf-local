@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+RUNTIME="$ROOT/.runtime"
+COMPOSE_FILE="$ROOT/compose.compat.yml"
+
+compose() {
+  docker compose --env-file "$RUNTIME/env" -f "$COMPOSE_FILE" "$@"
+}
+
+random_hex() {
+  openssl rand -hex "$1"
+}
+
+setup() {
+  umask 077
+  mkdir -p "$RUNTIME/secrets" "$RUNTIME/init" "$ROOT/backups"
+
+  if [[ ! -s "$RUNTIME/secrets/db_password" ]]; then
+    random_hex 24 > "$RUNTIME/secrets/db_password"
+  fi
+  if [[ ! -s "$RUNTIME/secrets/db_root_password" ]]; then
+    random_hex 32 > "$RUNTIME/secrets/db_root_password"
+  fi
+  if [[ ! -s "$RUNTIME/secrets/admin_password" ]]; then
+    random_hex 12 > "$RUNTIME/secrets/admin_password"
+  fi
+  if [[ ! -s "$RUNTIME/env" ]]; then
+    printf 'FBCTF_PORT=8080\n' > "$RUNTIME/env"
+  fi
+
+  local db_password admin_hash
+  db_password=$(<"$RUNTIME/secrets/db_password")
+  admin_hash=$(docker run --rm \
+    -v "$RUNTIME/secrets/admin_password:/run/admin_password:ro" \
+    'hhvm/hhvm@sha256:40e3a585d350bfdac45180364a4d352782fb7cbca05a7e0aa56d964262c9551e' \
+    hhvm --php -r 'echo password_hash(trim(file_get_contents("/run/admin_password")), PASSWORD_DEFAULT);')
+
+  printf '%s\n' \
+    "DB_HOST = 'db'" \
+    "DB_PORT = '3306'" \
+    "DB_NAME = 'fbctf'" \
+    "DB_USERNAME = 'fbctf'" \
+    "DB_PASSWORD = '$db_password'" \
+    "MC_HOST[] = 'cache'" \
+    "MC_PORT = '11211'" \
+    "FACEBOOK_OAUTH_APP_ID = ''" \
+    "FACEBOOK_OAUTH_APP_SECRET = ''" \
+    "GOOGLE_OAUTH_FILE = ''" > "$RUNTIME/settings.ini"
+
+  printf '%s\n' \
+    'USE `fbctf`;' \
+    "INSERT INTO teams (id, active, name, password_hash, points, last_score, logo, admin, protected, visible, created_ts) VALUES (1, 1, 'admin', '$admin_hash', 0, NOW(), 'admin', 1, 1, 1, NOW());" \
+    > "$RUNTIME/init/04-admin.sql"
+
+  chmod 700 "$RUNTIME" "$RUNTIME/secrets" "$RUNTIME/init"
+  chmod 600 "$RUNTIME/env" "$RUNTIME/secrets/"*
+  chmod 644 "$RUNTIME/settings.ini" "$RUNTIME/init/04-admin.sql"
+  printf 'Local runtime initialized. Admin credentials are stored in %s\n' "$RUNTIME/secrets/admin_password"
+}
+
+wait_for_http() {
+  local port
+  port=$(sed -n 's/^FBCTF_PORT=//p' "$RUNTIME/env")
+  for _ in $(seq 1 60); do
+    if curl --fail --silent --show-error "http://127.0.0.1:${port}/" >/dev/null 2>&1; then
+      printf 'FBCTF is ready at http://127.0.0.1:%s/\n' "$port"
+      return 0
+    fi
+    sleep 2
+  done
+  compose ps
+  compose logs --tail=100 app web db
+  return 1
+}
+
+case "${1:-}" in
+  setup)
+    setup
+    ;;
+  start|up)
+    setup
+    compose up -d --build
+    wait_for_http
+    ;;
+  stop|down)
+    compose down
+    ;;
+  restart)
+    compose restart
+    wait_for_http
+    ;;
+  status)
+    compose ps
+    ;;
+  logs)
+    shift
+    if [[ $# -gt 0 ]]; then
+      compose logs "$@"
+    else
+      compose logs
+    fi
+    ;;
+  credentials)
+    printf 'username: admin\npassword: %s\n' "$(<"$RUNTIME/secrets/admin_password")"
+    ;;
+  backup)
+    backup_dir="$ROOT/backups/$(date -u +%Y%m%dT%H%M%SZ)"
+    mkdir -p "$backup_dir"
+    compose exec -T db sh -c 'exec mariadb-dump -uroot --password="$(cat /run/secrets/db_root_password)" --single-transaction --databases fbctf' > "$backup_dir/fbctf.sql"
+    cp "$RUNTIME/secrets/admin_password" "$backup_dir/admin_password"
+    docker run --rm --user "$(id -u):$(id -g)" -v fbctf_attachments:/data:ro -v "$backup_dir:/backup" fbctf-web tar -C /data -czf /backup/attachments.tar.gz .
+    docker run --rm --user "$(id -u):$(id -g)" -v fbctf_custom_logos:/data:ro -v "$backup_dir:/backup" fbctf-web tar -C /data -czf /backup/custom-logos.tar.gz .
+    chmod -R go-rwx "$backup_dir"
+    printf 'Backup written to %s\n' "$backup_dir"
+    ;;
+  restore)
+    backup_dir=${2:-}
+    if [[ -z "$backup_dir" || ! -f "$backup_dir/fbctf.sql" ]]; then
+      printf 'Usage: %s restore /absolute/path/to/backup-directory\n' "$0" >&2
+      exit 2
+    fi
+    printf 'Restore %s over the current FBCTF data? Type RESTORE: ' "$backup_dir"
+    read -r confirmation
+    [[ "$confirmation" == "RESTORE" ]] || exit 1
+    compose stop app web
+    compose exec -T db sh -c 'exec mariadb -uroot --password="$(cat /run/secrets/db_root_password)"' < "$backup_dir/fbctf.sql"
+    docker run --rm -v fbctf_attachments:/data -v "$backup_dir:/backup:ro" fbctf-web tar -C /data -xzf /backup/attachments.tar.gz
+    docker run --rm -v fbctf_custom_logos:/data -v "$backup_dir:/backup:ro" fbctf-web tar -C /data -xzf /backup/custom-logos.tar.gz
+    cp "$backup_dir/admin_password" "$RUNTIME/secrets/admin_password"
+    chmod 600 "$RUNTIME/secrets/admin_password"
+    compose up -d app web
+    wait_for_http
+    ;;
+  smoke)
+    python3 "$ROOT/tests/integration/smoke.py"
+    ;;
+  *)
+    printf 'Usage: %s {setup|start|stop|restart|status|logs|credentials|backup|restore DIR|smoke}\n' "$0" >&2
+    exit 2
+    ;;
+esac
