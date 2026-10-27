@@ -12,6 +12,7 @@ require_once (__DIR__.'/../models/Cache.php');
 require_once (__DIR__.'/../models/Importable.php');
 require_once (__DIR__.'/../models/Exportable.php');
 require_once (__DIR__.'/../models/Level.php');
+require_once (__DIR__.'/../models/ManualBase.php');
 require_once (__DIR__.'/../models/Link.php');
 require_once (__DIR__.'/../models/Team.php');
 require_once (__DIR__.'/../models/Configuration.php');
@@ -25,7 +26,11 @@ $conf_game = \HH\Asio\join(Configuration::gen('game'));
 while ($conf_game->getValue() === '1') {
   // Get all active base levels
   $bases_endpoints = array();
+  $manual_base_ids = \HH\Asio\join(ManualBase::genLevelIds());
   foreach (\HH\Asio\join(Level::genAllActiveBases()) as $base) {
+    if (in_array($base->getId(), $manual_base_ids, true)) {
+      continue;
+    }
     $endpoint = array(
       'id' => $base->getId(),
       'url' => \HH\Asio\join(Level::genBaseIP($base->getId())),
@@ -58,6 +63,7 @@ while ($conf_game->getValue() === '1') {
       ),
     );
   }
+  \HH\Asio\join(ManualBase::genAccrueAll());
   // Wait until next iteration
   $bases_cycle = \HH\Asio\join(Configuration::gen('bases_cycle'));
   sleep(intval($bases_cycle->getValue()));

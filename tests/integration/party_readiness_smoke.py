@@ -32,6 +32,7 @@ PERSISTENT_TABLES = (
     "contest_session_votes", "contest_points_ledger", "music_requests",
     "music_queue", "music_playback_state", "karaoke_stage_state",
     "karaoke_performances", "music_points_ledger", "configuration",
+    "manual_base_state", "manual_base_points_ledger",
 )
 
 
@@ -114,6 +115,10 @@ def verify_database_invariants() -> None:
            "Karaoke Stage configuration is present")
     expect(len(sql("SELECT id FROM music_playback_state WHERE id=1")) == 1,
            "party music playback state is present")
+    expect(len(sql(
+        "SELECT level_id FROM manual_base_state WHERE level_id IN "
+        "(SELECT id FROM levels WHERE type='base')",
+    )) >= 1, "manual base ownership configuration is present")
 
 
 def verify_web_workflows(opener: urllib.request.OpenerDirector) -> None:
@@ -137,6 +142,7 @@ def verify_web_workflows(opener: urllib.request.OpenerDirector) -> None:
         ("/index.php?p=game", b"fb-gameboard", "challenge gameboard renders"),
         ("/index.php?p=admin&page=contests", b"Delete contest", "contest administration renders"),
         ("/index.php?p=admin&page=music", b"party playlist", "music and karaoke administration renders"),
+        ("/index.php?p=admin&page=bases", b"Set current winner", "manual base administration renders"),
         ("/tv", b"Karaoke Stage", "live TV dashboard renders"),
     )
     for path, marker, message in checks:

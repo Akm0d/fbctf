@@ -1003,7 +1003,13 @@ class Level extends Model implements Importable, Exportable {
     string $answer,
   ): Awaitable<bool> {
     $level = await self::gen($level_id);
-    return strtoupper(trim($level->getFlag())) === strtoupper(trim($answer));
+    return self::normalizeAnswer($level->getFlag()) ===
+      self::normalizeAnswer($answer);
+  }
+
+  private static function normalizeAnswer(string $answer): string {
+    $with_and = str_replace('&', ' AND ', strtoupper(trim($answer)));
+    return strval(preg_replace('/[^A-Z0-9]+/', '', $with_and));
   }
 
   public static async function genPenalizeFailure(

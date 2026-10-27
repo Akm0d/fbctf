@@ -3,6 +3,26 @@
 require_once ($_SERVER['DOCUMENT_ROOT'].'/../vendor/autoload.php');
 
 class CountryDataController extends DataController {
+  private async function genOwnership(
+    Level $level,
+    array<string> $completed_by,
+  ): Awaitable<(string, array<string>)> {
+    if ($level->getType() === 'base') {
+      $manual_owner = await ManualBase::genOwnerName($level->getId());
+      if ($manual_owner !== null) {
+        return tuple(
+          $manual_owner === '' ? 'Uncaptured' : $manual_owner,
+          $manual_owner === '' ? array() : array($manual_owner),
+        );
+      }
+    }
+    if ($completed_by) {
+      $team = await MultiTeam::genFirstCapture($level->getId());
+      return tuple($team->getName(), $completed_by);
+    }
+    return tuple('Uncaptured', $completed_by);
+  }
+
   public async function genGenerateData(): Awaitable<void> {
 
     /* HH_IGNORE_ERROR[1002] */
@@ -88,13 +108,8 @@ class CountryDataController extends DataController {
         $hint = 'no';
       }
 
-      // Who is the first owner of this level
-      if ($completed_by) {
-        $owner = await MultiTeam::genFirstCapture($level->getId()); // TODO: Combine Awaits
-        $owner = $owner->getName();
-      } else {
-        $owner = 'Uncaptured';
-      }
+      list($owner, $completed_by) =
+        await $this->genOwnership($level, $completed_by);
       $country_data = (object) array(
         'level_id' => $level->getId(),
         'title' => $level->getTitle(),

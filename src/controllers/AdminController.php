@@ -128,6 +128,51 @@ class AdminController extends Controller {
     return $select;
   }
 
+  private async function genManualBaseOwnerControl(
+    int $level_id,
+  ): Awaitable<:xhp> {
+    $is_manual = await ManualBase::genIsManual($level_id);
+    if (!$is_manual) {
+      return <div />;
+    }
+    list($owner_id, $owner_name) = await ManualBase::genOwner($level_id);
+    $owner_label = $owner_name === '' ? 'Unclaimed' : $owner_name;
+    $select =
+      <select class="not_configuration" name="manual_owner_team_id">
+        <option value="0" selected={$owner_id === 0}>Unclaimed</option>
+      </select>;
+    $teams = await Team::genAllTeams();
+    foreach ($teams as $team) {
+      if (!$team->getActive() || !$team->getVisible()) {
+        continue;
+      }
+      $select->appendChild(
+        <option
+          value={strval($team->getId())}
+          selected={$team->getId() === $owner_id}>
+          {$team->getName()}
+        </option>,
+      );
+    }
+    return
+      <div class="manual-base-owner admin-row">
+        <form class="manual_base_owner_form">
+          <input type="hidden" name="manual_level_id" value={strval($level_id)} />
+          <div class="form-el el--block-label el--full-text">
+            <label>Current winner: {$owner_label}</label>
+            {$select}
+          </div>
+          <button class="fb-cta cta--yellow" data-action="set-manual-base-owner">
+            Set current winner
+          </button>
+          <p>
+            Changing teams transfers this base immediately. Choosing Unclaimed
+            stops its passive points.
+          </p>
+        </form>
+      </div>;
+  }
+
   private async function genRegistrationTypeSelect(): Awaitable<:xhp> {
     $config = await Configuration::gen('registration_type');
     $type = $config->getValue();
@@ -2824,6 +2869,9 @@ class AdminController extends Controller {
         $l_c++;
       }
 
+      $manual_base_control =
+        await $this->genManualBaseOwnerControl($base->getId());
+
       list($countries_select, $level_categories_select) = await \HH\Asio\va(
         $this->genGenerateCountriesSelect($base->getEntityId()),
         $this->genGenerateLevelCategoriesSelect($base->getCategoryId()),
@@ -2939,6 +2987,7 @@ class AdminController extends Controller {
           </form>
           {$attachments_div}
           {$links_div}
+          {$manual_base_control}
           <div class="admin-buttons admin-row">
             <div class="button-right">
               <a href="#" class="admin--edit" data-action="edit">

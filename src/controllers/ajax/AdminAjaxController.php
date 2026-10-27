@@ -95,6 +95,7 @@ class AdminAjaxController extends AjaxController {
       'update_flag',
       'create_base',
       'update_base',
+      'set_manual_base_owner',
       'update_team',
       'delete_team',
       'delete_level',
@@ -255,6 +256,13 @@ class AdminAjaxController extends AjaxController {
           must_have_int($params, 'level_id'),
         );
         return Utils::ok_response('Updated succesfully', 'admin');
+      case 'set_manual_base_owner':
+        await ManualBase::genSetOwner(
+          must_have_int($params, 'level_id'),
+          must_have_int($params, 'team_id'),
+          SessionUtils::sessionTeam(),
+        );
+        return Utils::ok_response('Manual base owner updated', 'admin');
       case 'delete_level':
         await Level::genDelete(must_have_int($params, 'level_id'));
         return Utils::ok_response('Deleted succesfully', 'admin');

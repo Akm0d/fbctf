@@ -852,6 +852,16 @@ function updateBaseLevel(section) {
   sendAdminRequest(update_data, false);
 }
 
+function setManualBaseOwner(section) {
+  var level_id = $('input[name=manual_level_id]', section)[0].value;
+  var team_id = $('select[name=manual_owner_team_id] option:selected', section)[0].value;
+  sendAdminRequest({
+    action: 'set_manual_base_owner',
+    level_id: level_id,
+    team_id: team_id
+  }, true);
+}
+
 // Delete team
 function deleteTeam(section) {
   var team_id = $('.team_form input[name=team_id]', section)[0].value;
@@ -1158,6 +1168,8 @@ module.exports = {
         deleteAttachment($containingDiv);
       } else if (action === 'add-link') {
         addNewLink($section);
+      } else if (action === 'set-manual-base-owner') {
+        setManualBaseOwner($self.closest('.manual-base-owner'));
       } else if (action === 'create-link') {
         $containingDiv = $self.closest('.new-link');
         createLink($containingDiv);
