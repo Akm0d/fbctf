@@ -3,6 +3,8 @@ var FB_CTF = require('./fb-ctf');
 var Admin = require('./admin');
 var Contest = require('./contest');
 var ScanInput = require('./scan-input');
+var Music = require('./music');
+var Tv = require('./tv');
 
 var $ = require('jquery');
 require('./plugins');
@@ -63,9 +65,14 @@ $(document).ready(function() {
   } else if (section === 'admin') {
     Admin.init();
     Contest.initAdmin();
+    Music.initAdmin();
     enableAdminActiveState();
   } else if (section === 'contests') {
     Contest.initPlayer();
+  } else if (section === 'music') {
+    Music.initGuest();
+  } else if (section === 'tv') {
+    Tv.init();
   }
 
   $('body').trigger('content-loaded', {

@@ -75,6 +75,7 @@ class Control extends Model {
       self::genResetBases(), // Clear bases log
       self::genClearScriptLog(),
       Configuration::genUpdate('registration', '0'), // Disable registration
+      Music::genResetStageOwnership(),
     );
 
     await \HH\Asio\va(
@@ -136,6 +137,7 @@ class Control extends Model {
   }
 
   public static async function genEnd(): Awaitable<void> {
+    await Music::genAccrueStage();
     await \HH\Asio\va(
       Announcement::genCreateAuto('Game has ended!'), // Announce game ending
       ActivityLog::genCreateGenericLog('Game has ended!'), // Log game ending
@@ -162,6 +164,7 @@ class Control extends Model {
   }
 
   public static async function genPause(): Awaitable<void> {
+    await Music::genAccrueStage();
     await \HH\Asio\va(
       Announcement::genCreateAuto('Game has been paused!'), // Announce game paused
       ActivityLog::genCreateGenericLog('Game has been paused!'), // Log game paused
@@ -180,6 +183,7 @@ class Control extends Model {
 
   public static async function genUnpause(): Awaitable<void> {
     await Configuration::genUpdate('scoring', '1'); // Enable scoring
+    await Music::genMarkStageCursorNow();
     list($config_pause_ts, $config_start_ts, $config_end_ts) =
       await \HH\Asio\va(
         Configuration::gen('pause_ts'), // Get pause time

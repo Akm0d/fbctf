@@ -149,8 +149,11 @@ case "${1:-}" in
   contest-smoke)
     python3 "$ROOT/tests/integration/contest_smoke.py"
     ;;
+  music-smoke)
+    python3 "$ROOT/tests/integration/music_smoke.py"
+    ;;
   *)
-    printf 'Usage: %s {setup|start|stop|restart|status|logs|credentials|backup|restore DIR|migrate|smoke|contest-smoke}\n' "$0" >&2
+    printf 'Usage: %s {setup|start|stop|restart|status|logs|credentials|backup|restore DIR|migrate|smoke|contest-smoke|music-smoke}\n' "$0" >&2
     exit 2
     ;;
 esac

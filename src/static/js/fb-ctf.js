@@ -915,6 +915,10 @@ function setupInputListeners() {
         window.location.href = '/index.php?p=contests&level_id=' + data.level_id;
         return;
       }
+      if (data && (data.type === 'actv' || data.type === 'stag')) {
+        window.location.href = '/index.php?p=music';
+        return;
+      }
 
       Modal.loadPopup('p=country&modal=capture', 'country-capture', function() {
         var $container = $('.fb-modal-content'),

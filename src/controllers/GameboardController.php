@@ -30,7 +30,12 @@ class GameboardController extends Controller {
     } else {
       $admin_link = null;
     }
-    $branding_gen = await $this->genRenderBranding();
+    list($branding_gen, $stage) = await \HH\Asio\va(
+      $this->genRenderBranding(),
+      Music::genStage(),
+    );
+    $stage_owner = strval(idx($stage, 'owner_team_name', ''));
+    $stage_label = $stage_owner === '' ? 'Unclaimed' : $stage_owner;
     return
       <div id="fb-gameboard" class="fb-gameboard">
         <div class="gameboard-header">
@@ -68,6 +73,12 @@ class GameboardController extends Controller {
               </a>
             </div>
             <ul class="nav-right">
+              <li>
+                <a href="/index.php?p=music">Music</a>
+              </li>
+              <li class="karaoke-stage-nav">
+                Stage: {$stage_label}
+              </li>
               <li>
                 <a href="/index.php?p=contests">{tr('Contests')}</a>
               </li>

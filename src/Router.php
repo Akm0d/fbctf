@@ -66,6 +66,13 @@ class Router {
         SessionUtils::enforceLogin();
         SessionUtils::enforceAdmin();
         return await (new ContestAdminAjaxController())->genHandleRequest();
+      case 'music':
+        SessionUtils::enforceLogin();
+        return await (new MusicAjaxController())->genHandleRequest();
+      case 'music-admin':
+        SessionUtils::enforceLogin();
+        SessionUtils::enforceAdmin();
+        return await (new MusicAdminAjaxController())->genHandleRequest();
       default:
         throw new NotFoundRedirectException();
     }
@@ -86,6 +93,11 @@ class Router {
       case 'contests':
         SessionUtils::enforceLogin();
         return await (new ContestController())->genRender();
+      case 'music':
+        SessionUtils::enforceLogin();
+        return await (new MusicController())->genRender();
+      case 'tv':
+        return await (new TvController())->genRender();
       case 'view':
         return await (new ViewModeController())->genRender();
       case 'logout':

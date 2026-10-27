@@ -169,6 +169,50 @@ Web NFC availability is browser-dependent (primarily Chromium-based Android
 browsers). iPhone browsers fall back to manual input or can use the native
 camera/NFC reader with an `?answer=` URL. Scans never auto-submit.
 
+## Party music, karaoke, and TV
+
+The administrator music console is at **Admin → Party Music**. Paste one
+YouTube URL per line to preload the queue. To supply a title, use
+`Display title | YouTube URL`. URLs are reduced to validated 11-character
+YouTube video IDs; arbitrary iframe or HTML input is never stored or rendered.
+The console can reorder and remove queue entries, play a selected item, pause,
+resume, skip, moderate guest requests, and schedule a request at the end, next,
+or immediately.
+
+Authenticated teams use **Music** on the gameboard to submit regular or
+karaoke requests. Requests remain separate from the playing queue until an
+administrator schedules them. Only the administrator endpoints can change
+playback or award karaoke points.
+
+Open `/tv` in Chrome, press **Start TV Audio** once, then enter fullscreen or
+cast that browser tab. The TV uses the YouTube IFrame Player API and polls the
+server for commands without reloading the page. A renewable server lease makes
+one TV the active player; other open TV pages remain read-only standby displays.
+End-of-video reports include the current queue ID and are transactionally
+ignored after the first successful advance. If embedding fails, both the TV and
+administrator pages provide a direct YouTube link and the administrator can
+skip the item.
+
+Karaoke configuration can optionally create two four-character FBCTF map level
+types: `actv` for Karaoke Performance and `stag` for Karaoke Stage. Selecting
+either country sends the team to the Music page. Confirming a distinct karaoke
+queue entry awards the configured performance points once, records the team,
+song, administrator, and timestamp, and transfers stage ownership. The existing
+singleton autorun process awards full passive-minute intervals through an
+idempotent ledger. It does not use Base endpoint polling and stops its cursor
+while the game is paused, ended, or scoring is disabled.
+
+Run the cleanup-safe music integration workflow with:
+
+```bash
+./scripts/fbctf-local music-smoke
+```
+
+The test exercises playlist ordering, two team requests, remote commands, TV
+leasing and advancement, performance idempotency, passive scoring, ownership
+transfer, and restart persistence. It restores the existing teams' points and
+removes only the music and activity records it created.
+
 ## Security and public-exposure gate
 
 Do not enable Tailscale Funnel yet. Before public exposure:
