@@ -30,6 +30,7 @@ class ContestAdminAjaxController extends AjaxController {
       'create_contest',
       'update_contest',
       'finalize_contest',
+      'delete_contest',
     );
   }
 
@@ -101,6 +102,9 @@ class ContestAdminAjaxController extends AjaxController {
             $awarded ? 'Winner finalized and points awarded' : 'Contest was already finalized',
             'admin',
           );
+        case 'delete_contest':
+          await Contest::genDelete(must_have_int($params, 'contest_id'));
+          return Utils::ok_response('Contest deleted', 'admin');
         default:
           return Utils::error_response('Invalid action', 'admin');
       }

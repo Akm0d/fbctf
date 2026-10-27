@@ -48,6 +48,10 @@ module.exports = {
   initAdmin: function() {
     $(document).on('submit', '.contest-admin-form', function(event) {
       event.preventDefault();
+      if ($(this).hasClass('contest-delete-form') &&
+          !window.confirm('Delete this contest, its submissions, votes, and awarded points?')) {
+        return;
+      }
       submitForm(this, 'index.php?p=contest-admin&ajax=true');
     });
   }

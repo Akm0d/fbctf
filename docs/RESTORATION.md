@@ -87,12 +87,16 @@ Run the contest workflow after applying its additive migrations:
 ```
 
 This creates uniquely named test teams and a contest in the live game, then
-verifies country-attached contest levels, team-level entry updates, two browser
-sessions for one team earning separate vote rewards, rejection of a third
-session, duplicate-vote idempotency, image validation, explicit winner
+verifies country-attached contest levels, team-level entry updates, separate
+browser sessions for one team earning vote rewards up to the configured team
+size, duplicate-vote idempotency, image validation, explicit winner
 finalization, winner-reward idempotency, leaderboard totals, and persistence
 after an app/web restart. The records are retained as audit evidence; close or
 hide them through the administrator interface after use.
+
+Contest voting credits one vote per browser session. The per-team cap uses the
+number of stored team-member registration rows when present and otherwise uses
+Admin Configuration > Registration > Players Per Team.
 
 The nginx boundary supplies CSP, anti-framing, MIME-sniffing, referrer-policy,
 and request-rate controls. Sessions are regenerated at login, stored in the
@@ -212,6 +216,16 @@ The test exercises playlist ordering, two team requests, remote commands, TV
 leasing and advancement, performance idempotency, passive scoring, ownership
 transfer, and restart persistence. It restores the existing teams' points and
 removes only the music and activity records it created.
+
+For a non-destructive production readiness check covering the existing
+challenge, contest, music, karaoke, runtime configuration, and restart paths:
+
+```bash
+./scripts/fbctf-local party-smoke
+```
+
+This check creates and removes only its administrator session. It does not add
+teams, challenges, contests, songs, votes, performances, or points.
 
 ## Security and public-exposure gate
 

@@ -31,29 +31,33 @@ setup() {
     printf 'FBCTF_PORT=8080\n' > "$RUNTIME/env"
   fi
 
-  local db_password admin_hash
+  local db_password
   db_password=$(<"$RUNTIME/secrets/db_password")
-  admin_hash=$(docker run --rm \
-    -v "$RUNTIME/secrets/admin_password:/run/admin_password:ro" \
-    'hhvm/hhvm@sha256:40e3a585d350bfdac45180364a4d352782fb7cbca05a7e0aa56d964262c9551e' \
-    hhvm --php -r 'echo password_hash(trim(file_get_contents("/run/admin_password")), PASSWORD_DEFAULT);')
+  if [[ ! -s "$RUNTIME/settings.ini" ]]; then
+    printf '%s\n' \
+      "DB_HOST = 'db'" \
+      "DB_PORT = '3306'" \
+      "DB_NAME = 'fbctf'" \
+      "DB_USERNAME = 'fbctf'" \
+      "DB_PASSWORD = '$db_password'" \
+      "MC_HOST[] = 'cache'" \
+      "MC_PORT = '11211'" \
+      "FACEBOOK_OAUTH_APP_ID = ''" \
+      "FACEBOOK_OAUTH_APP_SECRET = ''" \
+      "GOOGLE_OAUTH_FILE = ''" > "$RUNTIME/settings.ini"
+  fi
 
-  printf '%s\n' \
-    "DB_HOST = 'db'" \
-    "DB_PORT = '3306'" \
-    "DB_NAME = 'fbctf'" \
-    "DB_USERNAME = 'fbctf'" \
-    "DB_PASSWORD = '$db_password'" \
-    "MC_HOST[] = 'cache'" \
-    "MC_PORT = '11211'" \
-    "FACEBOOK_OAUTH_APP_ID = ''" \
-    "FACEBOOK_OAUTH_APP_SECRET = ''" \
-    "GOOGLE_OAUTH_FILE = ''" > "$RUNTIME/settings.ini"
-
-  printf '%s\n' \
-    'USE `fbctf`;' \
-    "INSERT INTO teams (id, active, name, password_hash, points, last_score, logo, admin, protected, visible, created_ts) VALUES (1, 1, 'admin', '$admin_hash', 0, NOW(), 'admin', 1, 1, 1, NOW());" \
-    > "$RUNTIME/init/04-admin.sql"
+  if [[ ! -s "$RUNTIME/init/04-admin.sql" ]]; then
+    local admin_hash
+    admin_hash=$(docker run --rm \
+      -v "$RUNTIME/secrets/admin_password:/run/admin_password:ro" \
+      'hhvm/hhvm@sha256:40e3a585d350bfdac45180364a4d352782fb7cbca05a7e0aa56d964262c9551e' \
+      hhvm --php -r 'echo password_hash(trim(file_get_contents("/run/admin_password")), PASSWORD_DEFAULT);')
+    printf '%s\n' \
+      'USE `fbctf`;' \
+      "INSERT INTO teams (id, active, name, password_hash, points, last_score, logo, admin, protected, visible, created_ts) VALUES (1, 1, 'admin', '$admin_hash', 0, NOW(), 'admin', 1, 1, 1, NOW());" \
+      > "$RUNTIME/init/04-admin.sql"
+  fi
 
   chmod 700 "$RUNTIME" "$RUNTIME/secrets" "$RUNTIME/init"
   chmod 600 "$RUNTIME/env" "$RUNTIME/secrets/"*
@@ -83,6 +87,9 @@ case "${1:-}" in
   start|up)
     setup
     compose up -d --build
+    # nginx resolves the app service when it starts. Recreate both front-end
+    # containers together in case Compose replaced app or its network address.
+    compose up -d --no-deps --force-recreate app web
     wait_for_http
     ;;
   stop|down)
@@ -152,8 +159,11 @@ case "${1:-}" in
   music-smoke)
     python3 "$ROOT/tests/integration/music_smoke.py"
     ;;
+  party-smoke)
+    python3 "$ROOT/tests/integration/party_readiness_smoke.py"
+    ;;
   *)
-    printf 'Usage: %s {setup|start|stop|restart|status|logs|credentials|backup|restore DIR|migrate|smoke|contest-smoke|music-smoke}\n' "$0" >&2
+    printf 'Usage: %s {setup|start|stop|restart|status|logs|credentials|backup|restore DIR|migrate|smoke|contest-smoke|music-smoke|party-smoke}\n' "$0" >&2
     exit 2
     ;;
 esac

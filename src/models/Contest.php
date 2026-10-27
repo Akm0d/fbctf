@@ -3,7 +3,6 @@
 class Contest extends Model {
   const string IMAGE_DIR = '/var/www/fbctf/attachments/contests/';
   const int MAX_IMAGE_BYTES = 10485760;
-  const int MAX_VOTING_SESSIONS_PER_TEAM = 2;
 
   public static async function genAll(
     bool $visible_only = false,
@@ -326,9 +325,18 @@ class Contest extends Model {
         $contest_id,
         $team_id,
       );
+      $team_vote_limit = await $db->queryf(
+        'SELECT COALESCE(NULLIF((SELECT COUNT(*) FROM teams_data WHERE team_id = %d), 0), NULLIF((SELECT CAST(value AS UNSIGNED) FROM configuration WHERE field = %s LIMIT 1), 0), 1) AS vote_limit',
+        $team_id,
+        'registration_players',
+      );
+      $vote_limit = intval(
+        must_have_idx($team_vote_limit->mapRows()[0], 'vote_limit'),
+      );
       invariant(
-        intval(must_have_idx($team_vote_count->mapRows()[0], 'vote_count')) < self::MAX_VOTING_SESSIONS_PER_TEAM,
-        'This team already used both voting sessions',
+        intval(must_have_idx($team_vote_count->mapRows()[0], 'vote_count')) < $vote_limit,
+        'This team already used all %d configured voting sessions',
+        $vote_limit,
       );
       await $db->queryf(
         'INSERT INTO contest_session_votes (contest_id, voter_session_key, voter_team_id, entry_id) VALUES (%d, %s, %d, %d)',
@@ -423,5 +431,85 @@ class Contest extends Model {
       await $db->queryf('ROLLBACK');
       throw $error;
     }
+  }
+
+  public static async function genDelete(int $contest_id): Awaitable<void> {
+    $db = await self::genDb();
+    $image_filenames = array();
+    await $db->queryf('START TRANSACTION');
+    try {
+      $contest_result = await $db->queryf(
+        'SELECT level_id FROM contests WHERE id = %d FOR UPDATE',
+        $contest_id,
+      );
+      invariant($contest_result->numRows() === 1, 'Contest not found');
+      $level_id = intval(idx($contest_result->mapRows()[0], 'level_id', 0));
+
+      $images = await $db->queryf(
+        'SELECT image_filename FROM contest_entries WHERE contest_id = %d AND image_filename IS NOT NULL',
+        $contest_id,
+      );
+      foreach ($images->mapRows() as $image) {
+        $image_filenames[] = strval(must_have_idx($image, 'image_filename'));
+      }
+
+      $ledger = await $db->queryf(
+        'SELECT team_id, points FROM contest_points_ledger WHERE contest_id = %d FOR UPDATE',
+        $contest_id,
+      );
+      $points_by_team = Map {};
+      foreach ($ledger->mapRows() as $reward) {
+        $team_id = intval(must_have_idx($reward, 'team_id'));
+        $points = intval(must_have_idx($reward, 'points'));
+        $points_by_team->set($team_id, intval(idx($points_by_team, $team_id, 0)) + $points);
+      }
+      foreach ($points_by_team as $team_id => $points) {
+        if ($points !== 0) {
+          await $db->queryf(
+            'UPDATE teams SET points = points - %d, last_score = NOW() WHERE id = %d',
+            $points,
+            $team_id,
+          );
+        }
+      }
+
+      await $db->queryf(
+        'DELETE FROM contest_session_votes WHERE contest_id = %d',
+        $contest_id,
+      );
+      await $db->queryf(
+        'DELETE FROM contest_points_ledger WHERE contest_id = %d',
+        $contest_id,
+      );
+      await $db->queryf(
+        'DELETE FROM contest_entries WHERE contest_id = %d',
+        $contest_id,
+      );
+      await $db->queryf('DELETE FROM contests WHERE id = %d', $contest_id);
+      if ($level_id > 0) {
+        await $db->queryf('DELETE FROM failures_log WHERE level_id = %d', $level_id);
+        await $db->queryf('DELETE FROM hints_log WHERE level_id = %d', $level_id);
+        await $db->queryf('DELETE FROM scores_log WHERE level_id = %d', $level_id);
+        await $db->queryf('DELETE FROM levels WHERE id = %d', $level_id);
+      }
+      await $db->queryf('COMMIT');
+    } catch (Exception $error) {
+      await $db->queryf('ROLLBACK');
+      throw $error;
+    }
+
+    foreach ($image_filenames as $filename) {
+      $path = self::IMAGE_DIR.basename($filename);
+      if (is_file($path)) {
+        unlink($path);
+      }
+    }
+    await Country::genUsedAdjust();
+    await ActivityLog::genAdminLog('deleted', 'Contest', $contest_id);
+    Level::invalidateMCRecords();
+    Control::invalidateMCRecords();
+    MultiTeam::invalidateMCRecords();
+    HintLog::invalidateMCRecords();
+    ScoreLog::invalidateMCRecords();
   }
 }

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import http.cookiejar
+import http.client
 import json
 from pathlib import Path
 import re
@@ -62,6 +63,21 @@ class Client:
         )
         return json.loads(self.opener.open(request, timeout=15).read())
 
+    def logout(self) -> None:
+        connection = http.client.HTTPConnection(
+            "127.0.0.1", int(PORT), timeout=15,
+        )
+        cookie_header = "; ".join(
+            f"{cookie.name}={cookie.value}" for cookie in self.cookies
+        )
+        connection.request(
+            "GET", "/index.php?p=logout", headers={"Cookie": cookie_header},
+        )
+        response = connection.getresponse()
+        response.read()
+        connection.close()
+        expect(response.status == 302, "smoke-test session logs out cleanly")
+
 
 def token(page: bytes) -> str:
     match = re.search(rb'name="csrf_token" value="([^"]+)"', page)
@@ -116,6 +132,7 @@ def main() -> None:
     player_b, csrf_b = login(
         "Contest B 1793123484", "b-1793123484", "/index.php?p=music",
     )
+    tv_client = Client()
     endpoint = "/index.php?p=music-admin&ajax=true"
 
     try:
@@ -186,28 +203,27 @@ def main() -> None:
         expect(sql("SELECT desired_state FROM music_playback_state WHERE id=1") == [["playing"]], "remote play and pause update server playback state")
 
         tv_key = "0123456789abcdef0123456789abcdea"
-        tv_data = json.loads(urllib.request.urlopen(
-            BASE + "/data/music-tv.php?" + urllib.parse.urlencode({"client_key": tv_key}),
-            timeout=15,
-        ).read())
+        tv_data = json.loads(tv_client.get(
+            "/data/music-tv.php?" + urllib.parse.urlencode({"client_key": tv_key}),
+        ))
         expect(tv_data.get("active_tv") is True, "one TV client acquires the active-player lease")
         current_id = int(tv_data["playback"]["current_queue_id"])
-        finished = urllib.request.Request(
-            BASE + "/data/music-tv.php",
-            data=urllib.parse.urlencode({
+        finished = tv_client.post(
+            "/data/music-tv.php",
+            {
                 "action": "finished", "client_key": tv_key,
                 "queue_id": current_id,
-            }).encode(), method="POST",
+            },
         )
-        expect(json.loads(urllib.request.urlopen(finished, timeout=15).read())["result"] == "OK", "TV completion advances the queue")
-        duplicate = urllib.request.Request(
-            BASE + "/data/music-tv.php",
-            data=urllib.parse.urlencode({
+        expect(finished["result"] == "OK", "TV completion advances the queue")
+        duplicate = tv_client.post(
+            "/data/music-tv.php",
+            {
                 "action": "finished", "client_key": tv_key,
                 "queue_id": current_id,
-            }).encode(), method="POST",
+            },
         )
-        expect(json.loads(urllib.request.urlopen(duplicate, timeout=15).read())["result"] == "IGNORED", "duplicate TV completion cannot advance twice")
+        expect(duplicate["result"] == "IGNORED", "duplicate TV completion cannot advance twice")
 
         action(admin, endpoint, admin_csrf, "configure_karaoke", performance_points=50, passive_points=5, enabled="1", activity_country=0, stage_country=0, category_id=0)
         karaoke_rows = sql("SELECT id,request_team_id FROM music_queue WHERE is_karaoke=1 ORDER BY id")
@@ -238,15 +254,14 @@ def main() -> None:
         subprocess.run(COMPOSE + ["restart", "app", "web"], cwd=ROOT, check=True)
         for _ in range(30):
             try:
-                urllib.request.urlopen(BASE + "/tv", timeout=2).read(1)
+                tv_client.get("/tv")
                 break
             except Exception:
                 import time
                 time.sleep(1)
-        tv_after = json.loads(urllib.request.urlopen(
-            BASE + "/data/music-tv.php?" + urllib.parse.urlencode({"client_key": tv_key}),
-            timeout=15,
-        ).read())
+        tv_after = json.loads(tv_client.get(
+            "/data/music-tv.php?" + urllib.parse.urlencode({"client_key": tv_key}),
+        ))
         expect(len(tv_after["queue"]) >= 1 and tv_after["stage"]["owner_team_id"] == team_b_id, "queue and stage state survive restart")
     finally:
         sql(
@@ -272,6 +287,8 @@ def main() -> None:
             ],
             cwd=ROOT, check=True, capture_output=True, text=True,
         )
+        for client in (admin, player_a, player_b, tv_client):
+            client.logout()
     expect(sql("SELECT COUNT(*) FROM music_queue") == [["0"]], "test music rows are cleaned up")
     expect(sql(f"SELECT points FROM teams WHERE id={team_a_id}") == [[team_a_points]], "existing team points are restored")
     print("PASS: music, TV, karaoke, and stage smoke test complete")

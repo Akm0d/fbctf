@@ -174,9 +174,16 @@ class ContestAdminView {
             Finalize winner and award points once
           </button>
         </form>;
+    $delete =
+      <form class="contest-admin-form contest-delete-form admin-buttons admin-row">
+        <input type="hidden" name="action" value="delete_contest" />
+        <input type="hidden" name="contest_id" value={strval($contest_id)} />
+        <button type="submit" class="fb-cta cta--red">Delete contest</button>
+      </form>;
     return
       <div>
         {self::contestForm($contest, $categories, $countries)}
+        {$delete}
         <section class="admin-box">
           <header class="admin-box-header"><h3>Vote rankings</h3></header>
           {$rankings}
@@ -203,6 +210,10 @@ class ContestAdminView {
           <h3>Contest Management</h3>
           <span class="admin-section--status">status_ <span class="highlighted">OK</span></span>
         </header>
+        <p class="contest-help">
+          Voting allows one vote per browser session, capped by recorded team members.
+          Teams without member records use Configuration &gt; Registration &gt; Players Per Team.
+        </p>
         {$content}
       </div>;
   }
