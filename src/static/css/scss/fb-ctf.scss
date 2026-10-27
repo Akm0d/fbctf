@@ -10,6 +10,7 @@
 @import "pages";
 @import "gameboard";
 @import "admin";
+@import "contests";
 
 /* --------------------------------------------
  * --mobile only
@@ -20,20 +21,17 @@
     font-size: 2.4em;
   }
 
-  html, body,
-  .fb-page {
-    height: 100%;
+  html, body {
+    min-height: 100%;
   }
 
-  #fb-admin-nav,
-  #fb-main-nav,
-  .fb-navigation.fb-main-nav ul,
-  .fb-page-footer {
-    display: none;
+  body:not([data-section="gameboard"]) .fb-page {
+    min-height: 100vh;
+    height: auto;
   }
 
   .fb-viewport .fb-admin-main {
-    background: transparent;
+    background: $black;
   }
 
   .branding .branding-el,
@@ -54,5 +52,180 @@
     padding: 8px 0;
     border-top: 1px solid $light-blue;
     border-bottom: 1px solid $light-blue;
+  }
+
+  input[type="text"],
+  input[type="search"],
+  input[type="number"],
+  input[type="email"],
+  input[type="password"],
+  input[type="datetime-local"],
+  input[type="file"],
+  select,
+  textarea,
+  button,
+  .fb-cta {
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .fb-column-container {
+    flex-wrap: wrap;
+
+    & > .col,
+    & > .col.col-1-2,
+    & > .col.col-1-3,
+    & > .col.col-1-4,
+    & > .col.col-2-3 {
+      flex: 1 1 100%;
+    }
+  }
+
+  .fb-navigation {
+    padding: 10px;
+
+    &.fb-main-nav {
+      flex-wrap: wrap;
+
+      & > .branding {
+        order: -1;
+        flex: 1 0 100%;
+      }
+
+      & > ul {
+        display: flex;
+        flex: 1 1 50%;
+
+        li {
+          flex: 1 1 auto;
+        }
+
+        li:empty {
+          display: none;
+        }
+      }
+    }
+  }
+
+  .fb-viewport.admin-viewport {
+    display: block;
+    height: auto;
+  }
+
+  .fb-viewport .admin-nav-bar {
+    display: block;
+  }
+
+  .admin-nav-header,
+  .admin-nav-controls,
+  .admin-nav--footer {
+    padding: 10px;
+  }
+
+  .admin-nav-links {
+    overflow-x: auto;
+
+    ul {
+      display: flex;
+      min-width: max-content;
+    }
+
+    ul li a {
+      padding: 12px;
+      margin: 0;
+      border: 0;
+    }
+  }
+
+  .fb-viewport .fb-admin-main {
+    padding: 20px 12px;
+    overflow: visible;
+  }
+
+  .fb-gameboard {
+    min-height: 100vh;
+
+    .gameboard-header {
+      margin: 0;
+      background: $main-blue;
+    }
+
+    .fb-gameboard-nav {
+      .branding {
+        display: none;
+      }
+
+      ul.nav-left,
+      ul.nav-right {
+        padding: 0 8px;
+        text-align: center;
+      }
+
+      ul.nav-left .subnav {
+        z-index: 20;
+        background: $main-blue;
+        padding: 12px;
+      }
+    }
+
+    .fb-map,
+    .fb-module-container {
+      display: none;
+    }
+
+    .fb-listview {
+      display: block;
+      top: 105px;
+      overflow: auto;
+
+      .listview-container {
+        position: static;
+        overflow: visible;
+      }
+
+      table,
+      tbody,
+      tr,
+      td {
+        display: block;
+        width: 100% !important;
+      }
+
+      tr {
+        margin: 10px;
+        width: calc(100% - 20px) !important;
+        border: 1px solid $teal-blue;
+      }
+
+      td {
+        padding: 10px 14px;
+      }
+    }
+  }
+
+  .fb-modal-wrapper {
+    position: fixed;
+    overflow-y: auto;
+    align-items: flex-start;
+    padding: 12px 0;
+  }
+
+  .fb-modal-content,
+  .modal--popup .fb-modal-content {
+    width: calc(100% - 20px);
+    padding: 12px;
+
+    .fb-form {
+      padding: 12px 0;
+    }
+
+    .modal-footer {
+      display: block;
+
+      .col + .col {
+        border-left: 0;
+        border-top: 1px solid $teal-blue;
+      }
+    }
   }
 }

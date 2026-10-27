@@ -19,6 +19,8 @@ services:
       - ./database/countries.sql:/docker-entrypoint-initdb.d/02-countries.sql:ro
       - ./database/logos.sql:/docker-entrypoint-initdb.d/03-logos.sql:ro
       - ./.runtime/init/04-admin.sql:/docker-entrypoint-initdb.d/04-admin.sql:ro
+      - ./database/migrations/20261027_contests.sql:/docker-entrypoint-initdb.d/05-contests.sql:ro
+      - ./database/migrations/20261027_sessions_contests_as_levels.sql:/docker-entrypoint-initdb.d/06-contests-as-levels.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
       interval: 5s

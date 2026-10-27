@@ -1,0 +1,219 @@
+.contest-page {
+  min-height: 100vh;
+  background: $black url(../img/bg--world.png) top center no-repeat;
+  background-size: auto 60vh;
+  color: $light-blue;
+}
+
+.contest-nav {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 24px;
+  background: rgba($main-blue, .98);
+  border-bottom: 1px solid $teal-blue;
+
+  h1 {
+    color: $yellow;
+    font-size: 1.5em;
+  }
+
+  a {
+    @include purista-bold;
+    color: $light-blue;
+  }
+}
+
+.contest-shell {
+  width: min(1100px, calc(100% - 32px));
+  margin: 0 auto;
+  padding: 24px 0 60px;
+}
+
+.contest-team-name,
+.contest-category,
+.contest-rewards,
+.contest-help {
+  color: $teal-blue;
+}
+
+.contest-panel {
+  margin-top: 20px;
+  padding: 20px;
+  background: rgba($main-blue, .96);
+  border: 1px solid $blue-border;
+  border-radius: $border-radius;
+}
+
+.contest-card-header,
+.contest-entry-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.contest-status {
+  padding: 6px 10px;
+  border: 1px solid $red;
+  border-radius: $border-radius;
+
+  &.is-open {
+    border-color: $yellow;
+    color: $yellow;
+  }
+}
+
+.contest-entry-form {
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid $teal-blue;
+
+  button {
+    margin-top: 12px;
+  }
+}
+
+.contest-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+
+.contest-entry-card {
+  padding: 14px;
+  background: $main-blue-darken;
+  border: 1px solid $blue-border;
+  border-radius: $border-radius;
+
+  &.current-vote {
+    border-color: $yellow;
+  }
+}
+
+.contest-entry-image,
+.contest-image-preview {
+  display: block;
+  width: 100%;
+  max-height: 480px;
+  margin: 12px 0;
+  object-fit: contain;
+  background: $black;
+}
+
+.contest-image-preview:not(.has-image) {
+  display: none;
+}
+
+.contest-entry-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.contest-winner {
+  padding: 12px;
+  color: $yellow;
+  border: 1px solid $yellow;
+}
+
+.contest-ranking-row {
+  padding: 10px 0;
+  border-bottom: 1px solid $blue-border;
+}
+
+.contest-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  padding: 20px;
+
+  .contest-span-full {
+    grid-column: 1 / -1;
+  }
+
+  input,
+  select,
+  textarea {
+    width: 100%;
+  }
+}
+
+.contest-admin-rankings,
+.contest-finalize-form {
+  padding: 20px;
+}
+
+.answer-scan-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.qr-scanner {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid $teal-blue;
+
+  video {
+    display: block;
+    width: 100%;
+    max-height: 55vh;
+    background: $black;
+  }
+}
+
+input[type="datetime-local"],
+input[type="file"] {
+  @include source-code-regular;
+  width: 100%;
+  min-width: 80px;
+  padding: 6px;
+  color: $light-blue;
+  background: transparent;
+  border: 1px solid $teal-blue;
+  border-radius: $border-radius;
+}
+
+@include break-max(700px) {
+  .contest-nav {
+    padding: 12px;
+
+    h1 {
+      font-size: 1.1em;
+    }
+  }
+
+  .contest-shell {
+    width: calc(100% - 20px);
+    padding-top: 10px;
+  }
+
+  .contest-panel {
+    padding: 14px;
+  }
+
+  .contest-card-header,
+  .contest-entry-card header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .contest-admin-grid {
+    grid-template-columns: 1fr;
+
+    .contest-span-full {
+      grid-column: auto;
+    }
+  }
+
+  .answer-scan-actions {
+    button {
+      flex: 1;
+    }
+  }
+}

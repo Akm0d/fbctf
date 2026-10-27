@@ -111,8 +111,8 @@ case "${1:-}" in
     mkdir -p "$backup_dir"
     compose exec -T db sh -c 'exec mariadb-dump -uroot --password="$(cat /run/secrets/db_root_password)" --single-transaction --databases fbctf' > "$backup_dir/fbctf.sql"
     cp "$RUNTIME/secrets/admin_password" "$backup_dir/admin_password"
-    docker run --rm --user "$(id -u):$(id -g)" -v fbctf_attachments:/data:ro -v "$backup_dir:/backup" fbctf-web tar -C /data -czf /backup/attachments.tar.gz .
-    docker run --rm --user "$(id -u):$(id -g)" -v fbctf_custom_logos:/data:ro -v "$backup_dir:/backup" fbctf-web tar -C /data -czf /backup/custom-logos.tar.gz .
+    docker run --rm -v fbctf_attachments:/data:ro fbctf-web tar -C /data -czf - . > "$backup_dir/attachments.tar.gz"
+    docker run --rm -v fbctf_custom_logos:/data:ro fbctf-web tar -C /data -czf - . > "$backup_dir/custom-logos.tar.gz"
     chmod -R go-rwx "$backup_dir"
     printf 'Backup written to %s\n' "$backup_dir"
     ;;
@@ -134,11 +134,23 @@ case "${1:-}" in
     compose up -d app web
     wait_for_http
     ;;
+  migrate)
+    for migration in "$ROOT"/database/migrations/*.sql; do
+      [[ -f "$migration" ]] || continue
+      printf 'Applying %s\n' "$(basename "$migration")"
+      compose exec -T db sh -c \
+        'exec mariadb -uroot --password="$(cat /run/secrets/db_root_password)" fbctf' \
+        < "$migration"
+    done
+    ;;
   smoke)
     python3 "$ROOT/tests/integration/smoke.py"
     ;;
+  contest-smoke)
+    python3 "$ROOT/tests/integration/contest_smoke.py"
+    ;;
   *)
-    printf 'Usage: %s {setup|start|stop|restart|status|logs|credentials|backup|restore DIR|smoke}\n' "$0" >&2
+    printf 'Usage: %s {setup|start|stop|restart|status|logs|credentials|backup|restore DIR|migrate|smoke|contest-smoke}\n' "$0" >&2
     exit 2
     ;;
 esac

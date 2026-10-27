@@ -1,6 +1,8 @@
 var Utils = require('./utils');
 var FB_CTF = require('./fb-ctf');
 var Admin = require('./admin');
+var Contest = require('./contest');
+var ScanInput = require('./scan-input');
 
 var $ = require('jquery');
 require('./plugins');
@@ -50,18 +52,8 @@ function enableAdminActiveState() {
 }
 
 $(document).ready(function() {
-  var page_location = window.location.pathname + window.location.search;
-  if (window.innerWidth < 960 && page_location != '/index.php?page=mobile') {
-  window.location = '/index.php?page=mobile';
-  } else if (window.innerWidth < 960 && page_location == '/index.php?page=mobile') {
-    setTimeout(function() {
-      window.location = '/index.php';
-    }, 2000);
-  } else if (window.innerWidth >= 960 && page_location === '/index.php?page=mobile') {
-    window.location = '/index.php';
-  }
-
   FB_CTF.init();
+  ScanInput.init();
 
   var section = $('body').data('section');
   if (section === 'pages') {
@@ -70,7 +62,10 @@ $(document).ready(function() {
     FB_CTF.gameboard.init();
   } else if (section === 'admin') {
     Admin.init();
+    Contest.initAdmin();
     enableAdminActiveState();
+  } else if (section === 'contests') {
+    Contest.initPlayer();
   }
 
   $('body').trigger('content-loaded', {

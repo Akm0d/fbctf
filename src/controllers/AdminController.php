@@ -36,6 +36,7 @@ class AdminController extends Controller {
       'sessions',
       'scoreboard',
       'logs',
+      'contests',
     );
   }
 
@@ -4190,6 +4191,9 @@ class AdminController extends Controller {
               <a href="/index.php?p=admin&page=teams">{tr('Teams')}</a>
             </li>
             <li>
+              <a href="/index.php?p=admin&page=contests">Contests</a>
+            </li>
+            <li>
               <a href="/index.php?p=admin&page=logos">
                 {tr('Teams')}: {tr('Logos')}
               </a>
@@ -4258,6 +4262,9 @@ class AdminController extends Controller {
         break;
       case 'logs':
         return await $this->genRenderLogsContent();
+        break;
+      case 'contests':
+        return await ContestAdminView::genRender();
         break;
       default:
         return $this->renderMainContent();

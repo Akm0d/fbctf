@@ -487,6 +487,13 @@ function setupInputListeners() {
         //
         gameEventListeners();
 
+        // The world map is too dense for narrow touchscreens. Keep the same
+        // challenge data and modal flow, but make the list view the mobile
+        // default so every challenge remains easy to tap.
+        if (window.innerWidth < 960 && !VIEW_ONLY) {
+          toggleListView(true);
+        }
+
         //
         // initialize the tutorial, if the query string is present
         //
@@ -901,6 +908,14 @@ function setupInputListeners() {
     function launchCaptureModal(country) {
       var data = FB_CTF.data.COUNTRIES[country];
 
+      // Contests are first-class map levels, but their team entry and voting
+      // flow lives on the mobile-friendly contest page rather than the flag
+      // answer modal.
+      if (data && data.type === 'poll') {
+        window.location.href = '/index.php?p=contests&level_id=' + data.level_id;
+        return;
+      }
+
       Modal.loadPopup('p=country&modal=capture', 'country-capture', function() {
         var $container = $('.fb-modal-content'),
             level_id = data ? data.level_id : 0,
@@ -919,6 +934,10 @@ function setupInputListeners() {
         $('.country-name', $container).text(country);
         $('.country-title', $container).text(title);
         $('input[name=level_id]', $container).attr('value', level_id);
+        var prefilledAnswer = new URLSearchParams(window.location.search).get('answer');
+        if (prefilledAnswer) {
+          $('input[name=answer]:enabled', $container).val(prefilledAnswer);
+        }
         $('.capture-text', $container).text(intro);
         if (attachments instanceof Array) {
           $.each(attachments, function() {

@@ -99,6 +99,21 @@ class CountryModalController extends ModalController {
                       type="text"
                       autocomplete="off"
                     />
+                    <div class="answer-scan-actions">
+                      <button type="button" class="fb-cta cta--blue js-scan-qr">
+                        Scan QR
+                      </button>
+                      <button type="button" class="fb-cta cta--blue js-scan-nfc">
+                        Scan NFC
+                      </button>
+                    </div>
+                    <div class="qr-scanner completely-hidden">
+                      <video muted={true}></video>
+                      <p class="scan-status">Point the rear camera at a QR code.</p>
+                      <button type="button" class="fb-cta cta--red js-close-scanner">
+                        Close camera
+                      </button>
+                    </div>
                   </div>
                   <div
                     class=

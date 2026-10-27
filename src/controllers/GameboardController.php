@@ -69,6 +69,9 @@ class GameboardController extends Controller {
             </div>
             <ul class="nav-right">
               <li>
+                <a href="/index.php?p=contests">{tr('Contests')}</a>
+              </li>
+              <li>
                 <a href="#" class="js-launch-modal" data-modal="scoreboard">
                   {tr('Scoreboard')}
                 </a>

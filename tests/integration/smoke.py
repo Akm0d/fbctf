@@ -110,7 +110,10 @@ def wait_for_http() -> None:
 def verify_frontend() -> None:
     """Check the public proxy, generated assets, and anonymous admin boundary."""
     status, body, headers = Client().get("/")
-    expect(status == 200 and b"Facebook CTF" in body, "landing page renders")
+    expect(
+        status == 200 and b"Capture the Flag Competition" in body,
+        "customized landing page renders",
+    )
     expect(headers.get("X-Frame-Options") == "DENY", "clickjacking header is set")
     expect("object-src 'none'" in headers.get("Content-Security-Policy", ""), "CSP is set")
     for asset in ("/static/css/fb-ctf.css", "/static/dist/js/app.js"):

@@ -59,6 +59,13 @@ class Router {
       case 'game':
         SessionUtils::enforceLogin();
         return await (new GameAjaxController())->genHandleRequest();
+      case 'contests':
+        SessionUtils::enforceLogin();
+        return await (new ContestAjaxController())->genHandleRequest();
+      case 'contest-admin':
+        SessionUtils::enforceLogin();
+        SessionUtils::enforceAdmin();
+        return await (new ContestAdminAjaxController())->genHandleRequest();
       default:
         throw new NotFoundRedirectException();
     }
@@ -76,6 +83,9 @@ class Router {
       case 'game':
         SessionUtils::enforceLogin();
         return await (new GameboardController())->genRender();
+      case 'contests':
+        SessionUtils::enforceLogin();
+        return await (new ContestController())->genRender();
       case 'view':
         return await (new ViewModeController())->genRender();
       case 'logout':

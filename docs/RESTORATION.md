@@ -80,6 +80,20 @@ duplicate-solve rejection, exact scoring, bcrypt password storage, leaderboard
 data, session/database persistence across a full restart, and post-restart
 login.
 
+Run the contest workflow after applying its additive migrations:
+
+```bash
+./scripts/fbctf-local contest-smoke
+```
+
+This creates uniquely named test teams and a contest in the live game, then
+verifies country-attached contest levels, team-level entry updates, two browser
+sessions for one team earning separate vote rewards, rejection of a third
+session, duplicate-vote idempotency, image validation, explicit winner
+finalization, winner-reward idempotency, leaderboard totals, and persistence
+after an app/web restart. The records are retained as audit evidence; close or
+hide them through the administrator interface after use.
+
 The nginx boundary supplies CSP, anti-framing, MIME-sniffing, referrer-policy,
 and request-rate controls. Sessions are regenerated at login, stored in the
 database, and marked HttpOnly. Cookies are Secure when nginx reports HTTPS and
@@ -105,6 +119,55 @@ the pinned image digests and dependency locks in a reviewable commit, rebuild
 with `start`, and rerun `smoke`. Roll back by returning to the recorded revision,
 running `start` to rebuild those images, and restoring the pre-upgrade backup if
 the schema or stored data changed.
+
+Existing databases are upgraded explicitly, after the backup has been checked:
+
+```bash
+./scripts/fbctf-local backup
+test -s backups/<timestamp>/fbctf.sql
+./scripts/fbctf-local migrate
+docker compose --env-file .runtime/env -f compose.compat.yml up -d --build --no-deps app web
+```
+
+Migrations are additive and idempotent. The database volume is never removed or
+recreated by this procedure. A fresh database receives the same migrations from
+the MariaDB initialization directory.
+
+## Mobile input and contests
+
+The game board defaults to its original list view below 960 pixels while the
+desktop map and administrator interface remain available. Challenge answer
+dialogs include **Scan QR** and **Scan NFC** controls. A scanned value only fills
+the existing answer field; the player must still submit it through FBCTF's
+unchanged validation and scoring path. URLs containing `?answer=...` prefill the
+same field when a challenge is opened. Camera and Web NFC APIs require a secure
+browser context; loopback works for desktop testing, while phones require HTTPS.
+
+**Admin → Contests** creates a contest as an FBCTF `poll` level attached to an
+unused country. Active, visible contests therefore appear on the original map
+and list; selecting one opens its mobile-friendly entry and voting page. Team
+submissions open with the FBCTF game and close when the game ends. Each team has
+one updatable entry.
+
+Voting uses the existing authenticated browser session as its lightweight
+identity. One session can vote once per contest, and at most two distinct
+sessions from a team can vote. A vote change does not award points again. The
+database stores a SHA-256 session identifier, never the session cookie itself.
+This is a practical two-player party rule, not proof of human identity: one
+person could deliberately use two browsers, but a team cannot exceed two
+credited sessions. Vote and winner rewards use an idempotent ledger and
+transactional increments to the existing team score, so the original
+leaderboard remains the source players see.
+
+Voting schedule fields are UTC, matching both app and database containers.
+Leaving a voting boundary empty keeps that side of the window open. Uploaded
+images are verified by decoded image type, limited to 10 MiB, renamed randomly,
+stored in the persistent attachments volume, and served through an authenticated
+non-executable media endpoint.
+
+Web NFC availability is browser-dependent (primarily Chromium-based Android
+browsers). iPhone browsers fall back to manual input or can use the native
+camera/NFC reader with an `?answer=` URL. Scans never auto-submit.
 
 ## Security and public-exposure gate
 
