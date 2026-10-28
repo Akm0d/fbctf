@@ -1,5 +1,8 @@
 name: fbctf
 
+include:
+  - compose.migi.yml
+
 services:
   db:
     image: mariadb:11.8.5@sha256:3a730f41f00d261df28a0bc1bc2845f9c0901c2e2f05e5005c7713cc43ebc1fe
@@ -55,6 +58,8 @@ services:
       - ./.runtime/settings.ini:/var/www/fbctf/settings.ini:ro
       - attachments:/var/www/fbctf/attachments
       - custom_logos:/var/www/fbctf/src/data/customlogos
+    env_file:
+      - ./.runtime/env
     read_only: true
     tmpfs: [/tmp]
     cap_drop: [ALL]

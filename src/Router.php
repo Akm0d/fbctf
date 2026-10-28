@@ -73,6 +73,9 @@ class Router {
         SessionUtils::enforceLogin();
         SessionUtils::enforceAdmin();
         return await (new MusicAdminAjaxController())->genHandleRequest();
+      case 'migi':
+        SessionUtils::enforceLogin();
+        return await (new MigiAjaxController())->genHandleRequest();
       default:
         throw new NotFoundRedirectException();
     }

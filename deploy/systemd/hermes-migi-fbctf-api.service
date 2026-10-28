@@ -1,0 +1,19 @@
+[Unit]
+Description=Hermes migi-fbctf restricted API gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=HOME=/home/akmod
+Environment=PATH=/home/akmod/.local/bin:/home/akmod/.hermes/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/akmod/.local/bin/hermes -p migi-fbctf gateway run
+Restart=always
+RestartSec=5
+RestartPreventExitStatus=78
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=default.target

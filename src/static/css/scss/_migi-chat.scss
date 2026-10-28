@@ -1,0 +1,95 @@
+.migi-chat-launch {
+  margin: 12px 0;
+
+  .fb-cta {
+    width: 100%;
+  }
+}
+
+.migi-chat-panel {
+  margin: 16px 0;
+  padding: 14px;
+  border: 1px solid $teal-blue;
+  border-radius: $border-radius;
+  background: rgba($black, .35);
+
+  h4 {
+    margin-bottom: 10px;
+  }
+}
+
+.migi-chat-messages {
+  max-height: 42vh;
+  min-height: 110px;
+  overflow-y: auto;
+  padding: 8px;
+  border: 1px solid $blue-border;
+}
+
+.migi-message {
+  width: 86%;
+  margin: 8px 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+
+  p {
+    margin: 4px 0 0;
+    white-space: pre-wrap;
+  }
+}
+
+.migi-message--player {
+  margin-left: auto;
+  border: 1px solid $yellow;
+  background: rgba($yellow, .1);
+}
+
+.migi-message--migi {
+  margin-right: auto;
+  border: 1px solid $teal-blue;
+  background: rgba($teal-blue, .1);
+}
+
+.migi-message-author,
+.migi-thinking,
+.migi-chat-status {
+  @include source-code-bold;
+}
+
+.migi-chat-compose {
+  margin-top: 10px;
+
+  textarea {
+    width: 100%;
+    min-height: 72px;
+    resize: vertical;
+  }
+}
+
+.migi-chat-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+
+  button {
+    flex: 1;
+  }
+}
+
+.migi-thinking,
+.migi-chat-status {
+  display: block;
+  min-height: 20px;
+  margin-top: 8px;
+}
+
+@include break-max(700px) {
+  .migi-chat-panel {
+    padding: 10px;
+  }
+
+  .migi-message {
+    width: 94%;
+  }
+}

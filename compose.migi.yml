@@ -1,0 +1,28 @@
+services:
+  migi-relay:
+    build:
+      context: ./deploy/migi-relay
+    restart: unless-stopped
+    environment:
+      MIGI_HERMES_PROFILE: ${MIGI_HERMES_PROFILE:-migi-fbctf}
+      MIGI_HERMES_ENDPOINT: ${MIGI_HERMES_ENDPOINT:-http://100.100.154.70:8643/v1/chat/completions}
+      MIGI_HERMES_MODEL: ${MIGI_HERMES_MODEL:-migi-fbctf}
+      MIGI_HERMES_API_KEY_FILE: /run/secrets/migi_hermes_api_key
+      MIGI_REQUEST_TIMEOUT: ${MIGI_REQUEST_TIMEOUT:-60}
+      MIGI_OUTPUT_MAX_TOKENS: ${MIGI_OUTPUT_MAX_TOKENS:-768}
+    secrets:
+      - migi_hermes_api_key
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    networks: [backend, migi_egress]
+
+secrets:
+  migi_hermes_api_key:
+    file: ./.runtime/secrets/migi_hermes_api_key
+
+networks:
+  backend:
+    external: false
+  migi_egress:

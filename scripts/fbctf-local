@@ -14,6 +14,14 @@ random_hex() {
   openssl rand -hex "$1"
 }
 
+ensure_env_setting() {
+  local key=$1
+  local value=$2
+  if ! grep -q "^${key}=" "$RUNTIME/env"; then
+    printf '%s=%s\n' "$key" "$value" >> "$RUNTIME/env"
+  fi
+}
+
 setup() {
   umask 077
   mkdir -p "$RUNTIME/secrets" "$RUNTIME/init" "$ROOT/backups"
@@ -27,9 +35,24 @@ setup() {
   if [[ ! -s "$RUNTIME/secrets/admin_password" ]]; then
     random_hex 12 > "$RUNTIME/secrets/admin_password"
   fi
+  if [[ ! -s "$RUNTIME/secrets/migi_hermes_api_key" ]]; then
+    random_hex 32 > "$RUNTIME/secrets/migi_hermes_api_key"
+  fi
   if [[ ! -s "$RUNTIME/env" ]]; then
     printf 'FBCTF_PORT=8080\n' > "$RUNTIME/env"
   fi
+  ensure_env_setting MIGI_CHAT_ENABLED 0
+  ensure_env_setting MIGI_RELAY_URL http://migi-relay:8090/chat
+  ensure_env_setting MIGI_HERMES_PROFILE migi-fbctf
+  ensure_env_setting MIGI_HERMES_ENDPOINT http://100.100.154.70:8643/v1/chat/completions
+  ensure_env_setting MIGI_HERMES_MODEL migi-fbctf
+  ensure_env_setting MIGI_REQUEST_TIMEOUT 60
+  ensure_env_setting MIGI_MESSAGE_MAX_CHARS 1000
+  ensure_env_setting MIGI_HISTORY_MAX_MESSAGES 16
+  ensure_env_setting MIGI_OUTPUT_MAX_CHARS 4000
+  ensure_env_setting MIGI_OUTPUT_MAX_TOKENS 768
+  ensure_env_setting MIGI_SESSION_RATE_PER_MINUTE 6
+  ensure_env_setting MIGI_TEAM_RATE_PER_MINUTE 12
 
   local db_password
   db_password=$(<"$RUNTIME/secrets/db_password")
@@ -165,8 +188,11 @@ case "${1:-}" in
   party-smoke)
     python3 "$ROOT/tests/integration/party_readiness_smoke.py"
     ;;
+  migi-smoke)
+    python3 "$ROOT/tests/integration/migi_smoke.py"
+    ;;
   *)
-    printf 'Usage: %s {setup|start|stop|restart|status|logs|credentials|backup|restore DIR|migrate|smoke|contest-smoke|music-smoke|manual-base-smoke|party-smoke}\n' "$0" >&2
+    printf 'Usage: %s {setup|start|stop|restart|status|logs|credentials|backup|restore DIR|migrate|smoke|contest-smoke|music-smoke|manual-base-smoke|party-smoke|migi-smoke}\n' "$0" >&2
     exit 2
     ;;
 esac

@@ -124,6 +124,9 @@ class CountryDataController extends DataController {
         'hint_cost' => $hint_cost,
         'attachments' => $attachments_list,
         'links' => $links_list,
+        'migi_chat' => MigiChat::enabled() &&
+          $level->getType() === 'flag' &&
+          strcasecmp($category->getCategory(), 'Migi') === 0,
       );
       /* HH_FIXME[1002] */
       /* HH_FIXME[2011] */

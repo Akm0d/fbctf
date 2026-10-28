@@ -9,6 +9,7 @@ var Slider = require('./slider');
 var Clock = require('./clock');
 var Graphics = require('./graphics');
 var ScanInput = require('./scan-input');
+var MigiChat = require('./migi-chat');
 
 var d3 = require('d3');
 var $ = require('jquery');
@@ -982,6 +983,7 @@ function setupInputListeners() {
         $('.country-category', $container).text(category);
         $('.country-owner', $container).text(owner);
         ScanInput.configureForCategory($container, category);
+        MigiChat.configure($container, !!(data && data.migi_chat), level_id);
 
         if (completed instanceof Array) {
           $.each(completed, function() {
@@ -1102,6 +1104,9 @@ function setupInputListeners() {
           });
         });
         $($container).on('keypress', function(e) {
+          if ($(e.target).closest('.migi-chat-panel').length) {
+            return;
+          }
           if (e.keyCode == 13) {
             e.preventDefault();
             $('.js-trigger-score').click();

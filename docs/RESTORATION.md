@@ -227,6 +227,67 @@ challenge, contest, music, karaoke, runtime configuration, and restart paths:
 This check creates and removes only its administrator session. It does not add
 teams, challenges, contests, songs, votes, performances, or points.
 
+## Migi flag chat
+
+Migi chat reuses the normal country challenge modal and scoring path. Create a
+normal `flag` level, assign it to a category named exactly `Migi`, and configure
+its answer, points, and hints in the usual administrator interface. The chat
+button appears only for active flag levels in that category. Chat never submits
+the answer or changes scores.
+
+The request path is browser → authenticated/CSRF-protected FBCTF AJAX endpoint
+→ internal-only `migi-relay` container → the private Fenix Hermes listener. The
+application container remains on the internal Docker network. Only the relay
+has an egress network and the Hermes API secret; neither the browser nor HHVM
+receives that credential. Browser-session history is bounded and is not shared
+between two browsers logged into the same team.
+
+Runtime controls live in `.runtime/env`; the API key lives in
+`.runtime/secrets/migi_hermes_api_key`. Important settings are:
+
+```text
+MIGI_CHAT_ENABLED=1
+MIGI_HERMES_PROFILE=migi-fbctf
+MIGI_HERMES_ENDPOINT=http://100.100.154.70:8643/v1/chat/completions
+MIGI_HERMES_MODEL=migi-fbctf
+MIGI_REQUEST_TIMEOUT=60
+MIGI_MESSAGE_MAX_CHARS=1000
+MIGI_HISTORY_MAX_MESSAGES=16
+MIGI_SESSION_RATE_PER_MINUTE=6
+MIGI_TEAM_RATE_PER_MINUTE=12
+```
+
+Set `MIGI_CHAT_ENABLED=0` and recreate `app` and `web` together to hide and
+disable chat (nginx resolves the app container when it starts). The relay
+returns a friendly unavailable error if Fenix cannot be reached.
+
+Fenix serves this profile with the user service template at
+`deploy/systemd/hermes-migi-fbctf-api.service`. The profile-local configuration
+must keep `platform_toolsets.api_server` as an empty list; disable Hindsight,
+long-term memory, and full-content telemetry; enable its authenticated API
+listener on the Fenix Tailscale address; and use `gateway.standalone: true`.
+Standalone mode prevents this challenge profile from inheriting the host
+multiplex gateway's plugins or exposing another profile on its listener. The
+matching `API_SERVER_KEY` belongs in the profile's protected `.env`. Never copy
+the profile personality or planted flag into FBCTF.
+
+After changing Migi runtime settings, rebuild/recreate only the targeted
+services:
+
+```bash
+docker compose --env-file .runtime/env -f compose.compat.yml up -d --no-deps --force-recreate app web migi-relay
+```
+
+Run the cleanup-safe integration workflow with:
+
+```bash
+./scripts/fbctf-local migi-smoke
+```
+
+It temporarily creates a zero-point Migi flag, verifies authentication, CSRF,
+session isolation, multi-turn context, score invariance, credential isolation,
+and offline behavior, then removes the level/category and its sessions.
+
 ## Security and public-exposure gate
 
 Do not enable Tailscale Funnel yet. Before public exposure:
@@ -256,11 +317,9 @@ boundary exists:
 - Cooperative/social challenges should use a completion record with actor,
   team, challenge, evidence/status, and idempotency key rather than overloading
   `scores_log`.
-- Per-player AI interactions should store conversation references separately
-  from authoritative scoring data and never let model output award points.
-- `migi-fbctf` should integrate as an external least-privilege service through
-  authenticated, versioned APIs/webhooks with replay protection and an audit
-  log.
+- Future AI interactions beyond the implemented Migi flag chat should remain
+  separate from authoritative scoring and must not let model output award
+  points.
 - Completion webhooks should be emitted from committed completion events and
   retried idempotently; consumers must not sit inside the scoring transaction.
 

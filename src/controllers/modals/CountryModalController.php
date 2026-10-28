@@ -127,6 +127,42 @@ class CountryModalController extends ModalController {
                     />
                   </div>
                 </fieldset>
+                <div class="migi-chat-launch">
+                  <button
+                    type="button"
+                    class="fb-cta cta--blue js-open-migi-chat completely-hidden">
+                    Chat with Migi
+                  </button>
+                </div>
+                <section class="migi-chat-panel completely-hidden">
+                  <h4>Chat with Migi</h4>
+                  <div
+                    class="migi-chat-messages"
+                    role="log"
+                    aria-live="polite">
+                  </div>
+                  <span class="migi-thinking completely-hidden">
+                    Migi is thinking…
+                  </span>
+                  <span class="migi-chat-status" role="status"></span>
+                  <div class="migi-chat-compose">
+                    <textarea
+                      class="migi-chat-input"
+                      rows={2}
+                      maxlength="1000"
+                      enterkeyhint="send"
+                      placeholder="Say something to Migi…">
+                    </textarea>
+                    <div class="migi-chat-actions">
+                      <button type="button" class="fb-cta cta--yellow js-migi-send">
+                        Send
+                      </button>
+                      <button type="button" class="fb-cta cta--red js-migi-clear">
+                        Clear Conversation
+                      </button>
+                    </div>
+                  </div>
+                </section>
                 <div class="form-el--multiple-actions fb-column-container">
                   <div class="col col-1-2">
                     <a class="fb-cta cta--blue js-trigger-hint">
