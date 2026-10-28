@@ -28,6 +28,65 @@ class GameAjaxController extends AjaxController {
     return array('answer_level', 'get_hint', 'open_level');
   }
 
+  private static async function genFailedAnswer(
+    int $level_id,
+    int $team_id,
+    string $answer,
+  ): Awaitable<string> {
+    list($_, $penalty) = await \HH\Asio\va(
+      FailureLog::genLogFailedScore($level_id, $team_id, $answer),
+      Level::genPenalizeFailure($level_id, $team_id),
+    );
+    $message = $penalty > 0
+      ? 'Failed (-'.strval($penalty).' points)'
+      : 'Failed';
+    return Utils::error_response($message, 'game');
+  }
+
+  private static async function genAnswerLevel(
+    array<string, mixed> $params,
+  ): Awaitable<string> {
+    $scoring = await Configuration::gen('scoring');
+    if ($scoring->getValue() !== '1') {
+      return Utils::error_response('Failed', 'game');
+    }
+
+    $level_id = must_have_int($params, 'level_id');
+    $answer = must_have_string($params, 'answer');
+    $team_id = SessionUtils::sessionTeam();
+    $is_migi_vault = await MigiVault::genIsVault($level_id);
+    if ($is_migi_vault) {
+      $capture = await MigiVault::genCapture($level_id, $team_id, $answer);
+      if ($capture === 'captured') {
+        return Utils::ok_response('Success', 'game');
+      }
+      if ($capture === 'owned') {
+        return Utils::error_response('Your team already owns this base', 'game');
+      }
+      if ($capture === 'stale') {
+        return await self::genFailedAnswer($level_id, $team_id, $answer);
+      }
+      return Utils::error_response('Failed', 'game');
+    }
+
+    list($check_base, $check_status, $check_answer) = await \HH\Asio\va(
+      Level::genCheckBase($level_id),
+      Level::genCheckStatus($level_id),
+      Level::genCheckAnswer($level_id, $answer),
+    );
+    if ($check_base || !$check_status) {
+      return Utils::error_response('Failed', 'game');
+    }
+    if ($check_answer) {
+      $check_answered = await Level::genScoreLevel($level_id, $team_id);
+      if (!$check_answered) {
+        return Utils::ok_response('Double score for you! SIKE!', 'game');
+      }
+      return Utils::ok_response('Success', 'game');
+    }
+    return await self::genFailedAnswer($level_id, $team_id, $answer);
+  }
+
   <<__Override>>
   protected async function genHandleAction(
     string $action,
@@ -44,41 +103,7 @@ class GameAjaxController extends AjaxController {
       case 'none':
         return Utils::error_response('Invalid action', 'game');
       case 'answer_level':
-        $scoring = await Configuration::gen('scoring');
-        if ($scoring->getValue() === '1') {
-          $level_id = must_have_int($params, 'level_id');
-          $answer = must_have_string($params, 'answer');
-          list($check_base, $check_status, $check_answer) =
-            await \HH\Asio\va(
-              Level::genCheckBase($level_id),
-              Level::genCheckStatus($level_id),
-              Level::genCheckAnswer($level_id, $answer),
-            );
-          // Check if level is not a base or if level isn't active
-          if ($check_base || !$check_status) {
-            return Utils::error_response('Failed', 'game');
-            // Check if answer is valid
-          } else if ($check_answer) {
-            // Give points and update last score for team
-            $check_answered = await Level::genScoreLevel($level_id, SessionUtils::sessionTeam());
-            if (!$check_answered) {
-              return Utils::ok_response('Double score for you! SIKE!', 'game');
-            }
-            return Utils::ok_response('Success', 'game');
-          } else {
-            $team_id = SessionUtils::sessionTeam();
-            list($_, $penalty) = await \HH\Asio\va(
-              FailureLog::genLogFailedScore($level_id, $team_id, $answer),
-              Level::genPenalizeFailure($level_id, $team_id),
-            );
-            $message = $penalty > 0
-              ? 'Failed (-'.strval($penalty).' points)'
-              : 'Failed';
-            return Utils::error_response($message, 'game');
-          }
-        } else {
-          return Utils::error_response('Failed', 'game');
-        }
+        return await self::genAnswerLevel($params);
       case 'get_hint':
         $requested_hint = await Level::genLevelHint(
           must_have_int($params, 'level_id'),

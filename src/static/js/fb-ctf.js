@@ -943,6 +943,7 @@ function setupInputListeners() {
             owner = data ? data.owner : '',
             attachments = data ? data.attachments : '',
             links = data ? data.links : '';
+        var isMigiVault = !!(data && data.migi_vault);
         
         $('.country-name', $container).text(country);
         $('.country-title', $container).text(title);
@@ -993,12 +994,12 @@ function setupInputListeners() {
         }
 
         // Hide flag submission for bases
-        if (type === 'base') {
+        if (type === 'base' && !isMigiVault) {
           $('.answer_no_bases').addClass('completely-hidden');
         }
 
         // Hide flag submission for captured levels
-        if ($.inArray(level_id, FB_CTF.data.CAPTURES) != -1) {
+        if (!isMigiVault && $.inArray(level_id, FB_CTF.data.CAPTURES) != -1) {
           $('.answer_no_bases').addClass('completely-hidden');
           $('.answer_captured').removeClass('completely-hidden');
         }
@@ -1082,12 +1083,16 @@ function setupInputListeners() {
               });
               $('.js-trigger-score', $container).text('YES!');
               $('input[name=answer]', $container).css("background-color", "#1f7a1f");
-              $('.answer_no_bases > .fb-cta.cta--yellow.js-trigger-score').removeClass('js-trigger-score');
+              if (!isMigiVault) {
+                $('.answer_no_bases > .fb-cta.cta--yellow.js-trigger-score').removeClass('js-trigger-score');
+              }
               refreshMapData(); // Refresh map so capture shows up right away
               getCaptureData(); // Refresh captured levels so we can't reload the modal and see a submit button
               setTimeout(function() {
-                $('.answer_no_bases').addClass('completely-hidden');
-                $('.answer_captured').removeClass('completely-hidden');
+                if (!isMigiVault) {
+                  $('.answer_no_bases').addClass('completely-hidden');
+                  $('.answer_captured').removeClass('completely-hidden');
+                }
                 $('.js-close-modal', $container).click();
               }, 2000);
             } else {

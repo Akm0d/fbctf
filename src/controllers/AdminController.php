@@ -137,6 +137,16 @@ class AdminController extends Controller {
     }
     list($owner_id, $owner_name) = await ManualBase::genOwner($level_id);
     $owner_label = $owner_name === '' ? 'Unclaimed' : $owner_name;
+    $is_migi_vault = await MigiVault::genIsVault($level_id);
+    if ($is_migi_vault) {
+      return
+        <div class="manual-base-owner admin-row">
+          <p>
+            Current Migi Vault owner: {$owner_label}. Ownership changes only
+            when a team submits the current Vault code.
+          </p>
+        </div>;
+    }
     $select =
       <select class="not_configuration" name="manual_owner_team_id">
         <option value="0" selected={$owner_id === 0}>Unclaimed</option>

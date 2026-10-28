@@ -18,15 +18,16 @@ class MigiAjaxController extends AjaxController {
     return array('history', 'send', 'clear');
   }
 
-  private function response(
+  private async function genResponse(
     string $result,
     string $message,
     int $level_id,
-  ): string {
+  ): Awaitable<string> {
+    $history = await MigiChat::genHistory($level_id);
     return json_encode(array(
       'result' => $result,
       'message' => $message,
-      'history' => MigiChat::history($level_id),
+      'history' => $history,
     ));
   }
 
@@ -43,16 +44,16 @@ class MigiAjaxController extends AjaxController {
       await MigiChat::genAssertChallenge($level_id);
       switch ($action) {
         case 'history':
-          return $this->response('OK', '', $level_id);
+          return await $this->genResponse('OK', '', $level_id);
         case 'clear':
-          MigiChat::clear($level_id);
-          return $this->response('OK', 'Conversation cleared', $level_id);
+          await MigiChat::genClear($level_id);
+          return await $this->genResponse('OK', 'Conversation cleared', $level_id);
         case 'send':
-          $reply = MigiChat::send(
+          $reply = await MigiChat::genSend(
             $level_id,
             strval(idx($params, 'message', '')),
           );
-          return $this->response('OK', $reply, $level_id);
+          return await $this->genResponse('OK', $reply, $level_id);
         default:
           return Utils::error_response('Invalid action', 'game');
       }

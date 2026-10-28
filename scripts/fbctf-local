@@ -35,16 +35,13 @@ setup() {
   if [[ ! -s "$RUNTIME/secrets/admin_password" ]]; then
     random_hex 12 > "$RUNTIME/secrets/admin_password"
   fi
-  if [[ ! -s "$RUNTIME/secrets/migi_hermes_api_key" ]]; then
-    random_hex 32 > "$RUNTIME/secrets/migi_hermes_api_key"
-  fi
   if [[ ! -s "$RUNTIME/env" ]]; then
     printf 'FBCTF_PORT=8080\n' > "$RUNTIME/env"
   fi
   ensure_env_setting MIGI_CHAT_ENABLED 0
   ensure_env_setting MIGI_RELAY_URL http://migi-relay:8090/chat
   ensure_env_setting MIGI_HERMES_PROFILE migi-fbctf
-  ensure_env_setting MIGI_HERMES_ENDPOINT http://100.100.154.70:8643/v1/chat/completions
+  ensure_env_setting MIGI_HERMES_ENDPOINT https://migi.goose-stargazer.ts.net/p/migi-fbctf/v1/chat/completions
   ensure_env_setting MIGI_HERMES_MODEL migi-fbctf
   ensure_env_setting MIGI_REQUEST_TIMEOUT 60
   ensure_env_setting MIGI_MESSAGE_MAX_CHARS 1000

@@ -26,6 +26,7 @@ services:
       - ./database/migrations/20261027_sessions_contests_as_levels.sql:/docker-entrypoint-initdb.d/06-contests-as-levels.sql:ro
       - ./database/migrations/20261027_music.sql:/docker-entrypoint-initdb.d/07-music.sql:ro
       - ./database/migrations/20261027_manual_bases.sql:/docker-entrypoint-initdb.d/08-manual-bases.sql:ro
+      - ./database/migrations/20261028_migi_vault.sql:/docker-entrypoint-initdb.d/09-migi-vault.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
       interval: 5s

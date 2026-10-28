@@ -549,7 +549,7 @@ class Level extends Model implements Importable, Exportable {
     string $hint,
     int $penalty,
   ): Awaitable<int> {
-    return await self::genCreate(
+    $level_id = await self::genCreate(
       'base',
       $title,
       $description,
@@ -563,6 +563,8 @@ class Level extends Model implements Importable, Exportable {
       $hint,
       $penalty,
     );
+    await MigiVault::genInitialize($level_id);
+    return $level_id;
   }
 
   // Update a base level.
@@ -577,6 +579,14 @@ class Level extends Model implements Importable, Exportable {
     int $penalty,
     int $level_id,
   ): Awaitable<void> {
+    $was_vault = await MigiVault::genIsVault($level_id);
+    $category = await Category::genSingleCategory($category_id);
+    $is_vault = strcasecmp($category->getCategory(), MigiVault::CATEGORY) === 0;
+    $flag = '';
+    if ($is_vault && $was_vault) {
+      $existing_level = await self::gen($level_id);
+      $flag = $existing_level->getFlag();
+    }
     await self::genUpdate(
       $title,
       $description,
@@ -586,11 +596,16 @@ class Level extends Model implements Importable, Exportable {
       $bonus,
       0,
       $bonus,
-      '',
+      $flag,
       $hint,
       $penalty,
       $level_id,
     );
+    if ($is_vault) {
+      await MigiVault::genInitialize($level_id);
+    } else if ($was_vault) {
+      await MigiVault::genDetach($level_id);
+    }
   }
 
   // Update level.

@@ -257,8 +257,16 @@ class AdminAjaxController extends AjaxController {
         );
         return Utils::ok_response('Updated succesfully', 'admin');
       case 'set_manual_base_owner':
+        $manual_level_id = must_have_int($params, 'level_id');
+        $is_migi_vault = await MigiVault::genIsVault($manual_level_id);
+        if ($is_migi_vault) {
+          return Utils::error_response(
+            'Migi Vault ownership changes only through a valid code capture',
+            'admin',
+          );
+        }
         await ManualBase::genSetOwner(
-          must_have_int($params, 'level_id'),
+          $manual_level_id,
           must_have_int($params, 'team_id'),
           SessionUtils::sessionTeam(),
         );
