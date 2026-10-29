@@ -149,8 +149,7 @@ class CountryModalController extends ModalController {
                     <textarea
                       class="migi-chat-input"
                       rows={2}
-                      maxlength="1000"
-                      enterkeyhint="send"
+                      maxlength={1000}
                       placeholder="Say something to Migi…">
                     </textarea>
                     <div class="migi-chat-actions">

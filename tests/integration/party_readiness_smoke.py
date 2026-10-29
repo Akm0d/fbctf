@@ -140,6 +140,8 @@ def verify_web_workflows(opener: urllib.request.OpenerDirector) -> None:
 
     checks = (
         ("/index.php?p=game", b"fb-gameboard", "challenge gameboard renders"),
+        ("/index.php?p=country&modal=capture", b"country-capture-form",
+         "challenge capture modal renders"),
         ("/index.php?p=admin&page=contests", b"Delete contest", "contest administration renders"),
         ("/index.php?p=admin&page=music", b"party playlist", "music and karaoke administration renders"),
         ("/index.php?p=admin&page=bases", b"Set current winner", "manual base administration renders"),
