@@ -65,7 +65,7 @@ class MusicAdminView {
       }
     }
 
-    $request_rows = <div class="music-list"></div>;
+    $request_rows = <div class="music-list" data-music-list="requests"></div>;
     foreach ($requests as $request) {
       $id = must_have_idx($request, 'id');
       $status = must_have_idx($request, 'status');
@@ -93,7 +93,7 @@ class MusicAdminView {
       $request_rows->appendChild(<p>No guest requests.</p>);
     }
 
-    $queue_rows = <div class="music-list"></div>;
+    $queue_rows = <div class="music-list" data-music-list="queue"></div>;
     foreach ($queue as $item) {
       $id = must_have_idx($item, 'id');
       $karaoke = boolval(must_have_idx($item, 'is_karaoke'));
@@ -159,6 +159,7 @@ class MusicAdminView {
           <h3>Party Music &amp; Karaoke</h3>
           <a href="/tv" target="_blank" rel="noopener">Open TV display</a>
         </header>
+        <p class="music-admin-status" role="status" aria-live="polite"></p>
         <section class="admin-box music-admin-section">
           <header class="admin-box-header"><h3>Current playback</h3></header>
           <p class="music-now-title">{strval(idx($playback, 'display_title', '')) === '' ? 'Nothing playing' : must_have_idx($playback, 'display_title')}</p>
