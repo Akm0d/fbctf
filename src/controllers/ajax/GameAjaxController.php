@@ -54,6 +54,10 @@ class GameAjaxController extends AjaxController {
     $level_id = must_have_int($params, 'level_id');
     $answer = must_have_string($params, 'answer');
     $team_id = SessionUtils::sessionTeam();
+    $team_can_access = await Level::genTeamCanAccess($level_id, $team_id);
+    if (!$team_can_access) {
+      return Utils::error_response('Challenge is locked', 'game');
+    }
     $is_migi_vault = await MigiVault::genIsVault($level_id);
     if ($is_migi_vault) {
       $capture = await MigiVault::genCapture($level_id, $team_id, $answer);
@@ -82,7 +86,8 @@ class GameAjaxController extends AjaxController {
       if (!$check_answered) {
         return Utils::ok_response('Double score for you! SIKE!', 'game');
       }
-      return Utils::ok_response('Success', 'game');
+      $capture_message = await Level::genCaptureMessage($level_id);
+      return Utils::ok_response($capture_message, 'game');
     }
     return await self::genFailedAnswer($level_id, $team_id, $answer);
   }

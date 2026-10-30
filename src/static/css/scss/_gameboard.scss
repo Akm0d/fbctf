@@ -892,6 +892,14 @@ body[data-section="gameboard"] .fb-page {
 }
 
 .country-capture-form {
+  .capture-progress-message {
+    color: $yellow;
+    font-weight: bold;
+    line-height: 1.4;
+    margin: 12px 0;
+    white-space: pre-line;
+  }
+
   .help--time-left {
     font-size: 2em;
     display: none;

@@ -23,6 +23,86 @@ class CountryDataController extends DataController {
     return tuple('Uncaptured', $completed_by);
   }
 
+  private function lockedCountryData(Category $category): stdClass {
+    return (object) array(
+      'locked' => true,
+      'category' => $category->getCategory(),
+      'title' => '🔒 Locked',
+    );
+  }
+
+  private async function genUnlockedCountryData(
+    Level $level,
+    Category $category,
+    Team $my_team,
+  ): Awaitable<stdClass> {
+    $awaitables = Map {
+      'attachments_list' => Attachment::genAllAttachmentsFileNamesLinks(
+        $level->getId(),
+      ),
+      'links_list' => Link::genAllLinksValues($level->getId()),
+      'completed_by' => MultiTeam::genCompletedLevelTeamNames(
+        $level->getId(),
+      ),
+    };
+    $results = await \HH\Asio\m($awaitables);
+
+    if ($level->getHint() === '') {
+      $hint_cost = -1;
+      $hint = 'no';
+    } else if ($level->getPenalty() > $my_team->getPoints()) {
+      $hint_cost = -2;
+      $hint = 'no';
+    } else {
+      list($previous_hint, $previous_score) = await \HH\Asio\va(
+        HintLog::genPreviousHint($level->getId(), $my_team->getId(), false),
+        ScoreLog::genPreviousScore($level->getId(), $my_team->getId(), false),
+      );
+      $hint_cost = ($previous_hint || $previous_score)
+        ? 0
+        : $level->getPenalty();
+      $hint = $hint_cost === 0 ? $level->getHint() : 'yes';
+    }
+
+    list($owner, $completed_by) =
+      await $this->genOwnership($level, $results['completed_by']);
+    $team_completed = await ScoreLog::genAllPreviousScore(
+      $level->getId(),
+      $my_team->getId(),
+      false,
+    );
+    $next_destinations = array();
+    if ($team_completed) {
+      $next_destinations =
+        await Level::genDependentCountryNames($level->getId());
+    }
+    $migi_vault = $level->getType() === 'base' &&
+      strcasecmp($category->getCategory(), 'Migi') === 0;
+
+    return (object) array(
+      'locked' => false,
+      'level_id' => $level->getId(),
+      'title' => $level->getTitle(),
+      'intro' => $level->getDescription(),
+      'type' => $level->getType(),
+      'points' => $level->getPoints(),
+      'bonus' => $level->getBonus(),
+      'category' => $category->getCategory(),
+      'owner' => $owner,
+      'completed' => $completed_by,
+      'hint' => $hint,
+      'hint_cost' => $hint_cost,
+      'attachments' => $results['attachments_list'],
+      'links' => $results['links_list'],
+      'next_destinations' => $next_destinations,
+      'completion_message' => $team_completed && count($next_destinations) === 0
+        ? $level->getCompletionMessage()
+        : null,
+      'migi_chat' => MigiChat::enabled() && $migi_vault,
+      'migi_vault' => $migi_vault,
+    );
+  }
+
   public async function genGenerateData(): Awaitable<void> {
 
     /* HH_IGNORE_ERROR[1002] */
@@ -44,95 +124,20 @@ class CountryDataController extends DataController {
     }
 
     foreach ($all_active_levels as $level) {
-      $awaitables = Map {
-        'country' => Country::gen(intval($level->getEntityId())),
-        'category' => Category::genSingleCategory($level->getCategoryId()),
-        'attachments_list' => Attachment::genAllAttachmentsFileNamesLinks(
-          $level->getId(),
-        ),
-        'links_list' => Link::genAllLinksValues($level->getId()),
-        'completed_by' => MultiTeam::genCompletedLevelTeamNames(
-          $level->getId(),
-        ),
-      };
-      $awaitables_results = await \HH\Asio\m($awaitables); // TODO: Combine Awaits
-
-      $country = $awaitables_results['country'];
-      $category = $awaitables_results['category'];
-      $attachments_list = $awaitables_results['attachments_list'];
-      $links_list = $awaitables_results['links_list'];
-      $completed_by = $awaitables_results['completed_by'];
-
-      invariant(
-        $country instanceof Country,
-        'country should be of type Country',
+      list($country, $category, $unlocked) = await \HH\Asio\va(
+        Country::gen(intval($level->getEntityId())),
+        Category::genSingleCategory($level->getCategoryId()),
+        Level::genPrerequisiteSatisfied($level->getId(), $my_team->getId()),
       );
-      invariant(
-        $category instanceof Category,
-        'category should be of type Category',
-      );
-
-      if (!$country) {
+      if (!$unlocked) {
+        $countries_data->{$country->getName()} =
+          $this->lockedCountryData($category);
         continue;
       }
-
-      if ($level->getHint() !== '') {
-        // There is hint, can this team afford it?
-        if ($level->getPenalty() > $my_team->getPoints()) { // Not enough points
-          $hint_cost = -2;
-          $hint = 'no';
-        } else {
-          list($hint, $score) = await \HH\Asio\va(
-            HintLog::genPreviousHint(
-              $level->getId(),
-              $my_team->getId(),
-              false,
-            ),
-            ScoreLog::genPreviousScore(
-              $level->getId(),
-              $my_team->getId(),
-              false,
-            ),
-          ); // TODO: Combine Awaits
-
-          // Has this team requested this hint or scored this level before?
-          if ($hint || $score) {
-            $hint_cost = 0;
-          } else {
-            $hint_cost = $level->getPenalty();
-          }
-          $hint = ($hint_cost === 0) ? $level->getHint() : 'yes';
-        }
-      } else { // No hints
-        $hint_cost = -1;
-        $hint = 'no';
-      }
-
-      list($owner, $completed_by) =
-        await $this->genOwnership($level, $completed_by);
-      $country_data = (object) array(
-        'level_id' => $level->getId(),
-        'title' => $level->getTitle(),
-        'intro' => $level->getDescription(),
-        'type' => $level->getType(),
-        'points' => $level->getPoints(),
-        'bonus' => $level->getBonus(),
-        'category' => $category->getCategory(),
-        'owner' => $owner,
-        'completed' => $completed_by,
-        'hint' => $hint,
-        'hint_cost' => $hint_cost,
-        'attachments' => $attachments_list,
-        'links' => $links_list,
-        'migi_chat' => MigiChat::enabled() &&
-          $level->getType() === 'base' &&
-          strcasecmp($category->getCategory(), 'Migi') === 0,
-        'migi_vault' => $level->getType() === 'base' &&
-          strcasecmp($category->getCategory(), 'Migi') === 0,
-      );
       /* HH_FIXME[1002] */
       /* HH_FIXME[2011] */
-      $countries_data->{$country->getName()} = $country_data;
+      $countries_data->{$country->getName()} =
+        await $this->genUnlockedCountryData($level, $category, $my_team);
     }
 
     $this->jsonSend($countries_data);

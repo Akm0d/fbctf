@@ -60,6 +60,7 @@ class AdminAjaxController extends AjaxController {
         'bonus' => FILTER_VALIDATE_INT,
         'bonus_dec' => FILTER_VALIDATE_INT,
         'penalty' => FILTER_VALIDATE_INT,
+        'requires_level_id' => FILTER_VALIDATE_INT,
         'active' => FILTER_VALIDATE_INT,
         'field' => FILTER_UNSAFE_RAW,
         'value' => FILTER_UNSAFE_RAW,
@@ -202,7 +203,7 @@ class AdminAjaxController extends AjaxController {
       case 'create_flag':
         $bonus = $default_bonus->getValue();
         $bonus_dec = $default_bonusdec->getValue();
-        await Level::genCreateFlag(
+        $created_flag_id = await Level::genCreateFlag(
           must_have_string($params, 'title'),
           must_have_string($params, 'description'),
           must_have_string($params, 'flag'),
@@ -214,8 +215,14 @@ class AdminAjaxController extends AjaxController {
           must_have_string($params, 'hint'),
           intval(must_have_idx($params, 'penalty')),
         );
+        $created_requirement = intval(idx($params, 'requires_level_id', 0));
+        await Level::genSetPrerequisite(
+          $created_flag_id,
+          $created_requirement > 0 ? $created_requirement : null,
+        );
         return Utils::ok_response('Created succesfully', 'admin');
       case 'update_flag':
+        $updated_flag_id = must_have_int($params, 'level_id');
         await Level::genUpdateFlag(
           must_have_string($params, 'title'),
           must_have_string($params, 'description'),
@@ -227,7 +234,12 @@ class AdminAjaxController extends AjaxController {
           must_have_int($params, 'bonus_dec'),
           must_have_string($params, 'hint'),
           intval(must_have_idx($params, 'penalty')),
-          must_have_int($params, 'level_id'),
+          $updated_flag_id,
+        );
+        $updated_requirement = intval(idx($params, 'requires_level_id', 0));
+        await Level::genSetPrerequisite(
+          $updated_flag_id,
+          $updated_requirement > 0 ? $updated_requirement : null,
         );
         return Utils::ok_response('Updated succesfully', 'admin');
       case 'create_base':

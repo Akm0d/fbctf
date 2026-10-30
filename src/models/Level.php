@@ -2,6 +2,9 @@
 
 class Level extends Model implements Importable, Exportable {
 
+  private ?int $requires_level_id = null;
+  private ?string $completion_message = null;
+
   protected static string $MC_KEY = 'level:';
 
   protected static Map<string, string>
@@ -86,12 +89,20 @@ class Level extends Model implements Importable, Exportable {
     return $this->penalty;
   }
 
+  public function getRequiresLevelId(): ?int {
+    return $this->requires_level_id;
+  }
+
+  public function getCompletionMessage(): ?string {
+    return $this->completion_message;
+  }
+
   public function getCreatedTs(): string {
     return $this->created_ts;
   }
 
   private static function levelFromRow(Map<string, string> $row): Level {
-    return new Level(
+    $level = new Level(
       intval(must_have_idx($row, 'id')),
       intval(must_have_idx($row, 'active')),
       must_have_idx($row, 'type'),
@@ -108,6 +119,74 @@ class Level extends Model implements Importable, Exportable {
       intval(must_have_idx($row, 'penalty')),
       must_have_idx($row, 'created_ts'),
     );
+    $level->requires_level_id = idx($row, 'requires_level_id') === null
+      ? null
+      : intval(idx($row, 'requires_level_id'));
+    $level->completion_message = idx($row, 'completion_message');
+    return $level;
+  }
+
+  private static function rememberImportedProgression(
+    Map<int, int> $level_id_map,
+    Vector<(int, ?int, ?string)> $pending_progression,
+    int $level_id,
+    array<string, mixed> $level,
+  ): void {
+    $source_id = idx($level, 'id');
+    if ($source_id !== null) {
+      $level_id_map->set(intval($source_id), $level_id);
+    }
+    $pending_progression->add(tuple(
+      $level_id,
+      idx($level, 'requires_level_id') === null
+        ? null
+        : intval(idx($level, 'requires_level_id')),
+      idx($level, 'completion_message'),
+    ));
+  }
+
+  private static async function genApplyImportedProgression(
+    Map<int, int> $level_id_map,
+    Vector<(int, ?int, ?string)> $pending_progression,
+  ): Awaitable<void> {
+    foreach ($pending_progression as $progression) {
+      list($destination_id, $source_requirement, $completion_message) =
+        $progression;
+      $requires_level_id = $source_requirement;
+      if ($source_requirement !== null &&
+          $level_id_map->contains($source_requirement)) {
+        $requires_level_id = $level_id_map->get($source_requirement);
+      }
+      await self::genSetProgression(
+        $destination_id,
+        $requires_level_id,
+        $completion_message,
+      );
+    }
+  }
+
+  private static async function genImportAssets(
+    int $level_id,
+    array<string, mixed> $level,
+  ): Awaitable<void> {
+    if (array_key_exists('links', $level)) {
+      $links = must_have_idx($level, 'links');
+      invariant(is_array($links), 'links must be of type array');
+      foreach ($links as $link) {
+        await Link::genCreate($link, $level_id);
+      }
+    }
+    if (array_key_exists('attachments', $level)) {
+      $attachments = must_have_idx($level, 'attachments');
+      invariant(is_array($attachments), 'attachments must be of type array');
+      foreach ($attachments as $attachment) {
+        await Attachment::genImportAttachments(
+          $level_id,
+          $attachment['filename'],
+          $attachment['type'],
+        );
+      }
+    }
   }
 
   // Retrieve the level that is using one country
@@ -148,6 +227,8 @@ class Level extends Model implements Importable, Exportable {
   public static async function importAll(
     array<string, array<string, mixed>> $elements,
   ): Awaitable<bool> {
+    $level_id_map = Map<int, int> {};
+    $pending_progression = Vector<(int, ?int, ?string)> {};
     foreach ($elements as $level) {
       $title = must_have_string($level, 'title');
       $type = must_have_string($level, 'type');
@@ -177,30 +258,54 @@ class Level extends Model implements Importable, Exportable {
           must_have_string($level, 'hint'),
           must_have_int($level, 'penalty'),
         );
-        if (array_key_exists('links', $level)) {
-          $links = must_have_idx($level, 'links');
-          invariant(is_array($links), 'links must be of type array');
-          foreach ($links as $link) {
-            await Link::genCreate($link, $level_id); // TODO: Combine Awaits
-          }
-        }
-        if (array_key_exists('attachments', $level)) {
-          $attachments = must_have_idx($level, 'attachments');
-          invariant(
-            is_array($attachments),
-            'attachments must be of type array',
-          );
-          foreach ($attachments as $attachment) {
-            await Attachment::genImportAttachments(
-              $level_id,
-              $attachment['filename'],
-              $attachment['type'],
-            ); // TODO: Combine Awaits
-          }
-        }
+        self::rememberImportedProgression(
+          $level_id_map,
+          $pending_progression,
+          $level_id,
+          $level,
+        );
+        await self::genImportAssets($level_id, $level);
       }
     }
+    await self::genApplyImportedProgression($level_id_map, $pending_progression);
     return true;
+  }
+
+  public static async function genSetPrerequisite(
+    int $level_id,
+    ?int $requires_level_id,
+  ): Awaitable<void> {
+    await self::genValidatePrerequisite($requires_level_id, $level_id);
+    $db = await self::genDb();
+    await $db->queryf(
+      'UPDATE levels SET requires_level_id = NULLIF(%d, 0) '.
+      'WHERE id = %d LIMIT 1',
+      $requires_level_id === null ? 0 : $requires_level_id,
+      $level_id,
+    );
+    self::invalidateMCRecords();
+  }
+
+  public static async function genSetProgression(
+    int $level_id,
+    ?int $requires_level_id,
+    ?string $completion_message,
+  ): Awaitable<void> {
+    await self::genSetPrerequisite($level_id, $requires_level_id);
+    $db = await self::genDb();
+    if ($completion_message === null || trim($completion_message) === '') {
+      await $db->queryf(
+        'UPDATE levels SET completion_message = NULL WHERE id = %d LIMIT 1',
+        $level_id,
+      );
+    } else {
+      await $db->queryf(
+        'UPDATE levels SET completion_message = %s WHERE id = %d LIMIT 1',
+        $completion_message,
+        $level_id,
+      );
+    }
+    self::invalidateMCRecords();
   }
 
   // Export levels.
@@ -242,10 +347,13 @@ class Level extends Model implements Importable, Exportable {
         'flag' => $level->getFlag(),
         'hint' => $level->getHint(),
         'penalty' => $level->getPenalty(),
+        'id' => $level->getId(),
+        'requires_level_id' => $level->getRequiresLevelId(),
+        'completion_message' => $level->getCompletionMessage(),
         'links' => $link_array,
         'attachments' => $attachment_array,
       );
-      array_push($all_levels_data, $one_level);
+      $all_levels_data[] = $one_level;
     }
     return array('levels' => $all_levels_data);
   }
@@ -332,6 +440,83 @@ class Level extends Model implements Importable, Exportable {
         return false;
       }
     }
+  }
+
+  public static async function genValidatePrerequisite(
+    ?int $requires_level_id,
+    ?int $level_id,
+  ): Awaitable<void> {
+    if ($requires_level_id === null) {
+      return;
+    }
+    invariant(
+      $level_id === null || $requires_level_id !== $level_id,
+      'A level cannot require itself',
+    );
+    $db = await self::genDb();
+    $result = await $db->queryf(
+      'SELECT id FROM levels WHERE id = %d LIMIT 1',
+      $requires_level_id,
+    );
+    invariant($result->numRows() === 1, 'Prerequisite level not found');
+  }
+
+  public static async function genPrerequisiteSatisfied(
+    int $level_id,
+    int $team_id,
+  ): Awaitable<bool> {
+    $level = await self::gen($level_id);
+    $requires_level_id = $level->getRequiresLevelId();
+    if ($requires_level_id === null) {
+      return true;
+    }
+    return await ScoreLog::genAllPreviousScore(
+      $requires_level_id,
+      $team_id,
+      false,
+    );
+  }
+
+  public static async function genTeamCanAccess(
+    int $level_id,
+    int $team_id,
+  ): Awaitable<bool> {
+    list($active, $unlocked) = await \HH\Asio\va(
+      self::genCheckStatus($level_id),
+      self::genPrerequisiteSatisfied($level_id, $team_id),
+    );
+    return $active && $unlocked;
+  }
+
+  public static async function genDependentCountryNames(
+    int $level_id,
+  ): Awaitable<array<string>> {
+    $db = await self::genDb();
+    $result = await $db->queryf(
+      'SELECT l.entity_id FROM levels l '.
+      'WHERE l.requires_level_id = %d AND l.active = 1 ORDER BY l.entity_id',
+      $level_id,
+    );
+    $names = array();
+    foreach ($result->mapRows() as $row) {
+      $country = await Country::gen(intval(must_have_idx($row, 'entity_id')));
+      $names[] = $country->getName();
+    }
+    return $names;
+  }
+
+  public static async function genCaptureMessage(int $level_id): Awaitable<string> {
+    $level = await self::gen($level_id);
+    $next = await self::genDependentCountryNames($level_id);
+    if (count($next) > 0) {
+      $destinations = implode(', ', array_map($name ==> strtoupper($name), $next));
+      return 'Country captured!\n\nNext destination: '.$destinations.
+        '\n\n'.$destinations.' is now unlocked.';
+    }
+    $completion = $level->getCompletionMessage();
+    return $completion === null || trim($completion) === ''
+      ? 'Success'
+      : $completion;
   }
 
   // Create a team and return the created level id.
@@ -1018,7 +1203,8 @@ class Level extends Model implements Importable, Exportable {
     string $answer,
   ): Awaitable<bool> {
     $level = await self::gen($level_id);
-    return self::normalizeAnswer($level->getFlag()) ===
+    $expected = self::normalizeAnswer($level->getFlag());
+    return $expected !== '' && $expected ===
       self::normalizeAnswer($answer);
   }
 
@@ -1122,6 +1308,12 @@ class Level extends Model implements Importable, Exportable {
             return false;
           }
 
+          $team_can_access =
+            await self::genTeamCanAccess($level_id, $team_id);
+          if (!$team_can_access) {
+            return false;
+          }
+
           $level = await self::gen($level_id);
 
           // Calculate points to give
@@ -1216,6 +1408,11 @@ class Level extends Model implements Importable, Exportable {
           $db = await self::genDb();
 
           $level = await self::gen($level_id);
+          $team_can_access =
+            await self::genTeamCanAccess($level_id, $team_id);
+          if (!$team_can_access) {
+            return null;
+          }
           $penalty = $level->getPenalty();
 
           // Check if team has already gotten this hint or if the team has scored this already

@@ -15,7 +15,7 @@ class ListviewController extends ModuleController {
 
     $active_levels = await Level::genAllActiveLevels();
     foreach ($active_levels as $level) {
-      list($country, $category, $previous_score) = await \HH\Asio\va(
+      list($country, $category, $previous_score, $unlocked) = await \HH\Asio\va(
         Country::gen(intval($level->getEntityId())),
         Category::genSingleCategory($level->getCategoryId()),
         ScoreLog::genAllPreviousScore(
@@ -23,8 +23,14 @@ class ListviewController extends ModuleController {
           SessionUtils::sessionTeam(),
           false,
         ),
+        Level::genPrerequisiteSatisfied(
+          $level->getId(),
+          SessionUtils::sessionTeam(),
+        ),
       ); // TODO: Combine Awaits
-      if ($previous_score) {
+      if (!$unlocked) {
+        $span_status = <span class="fb-status status--locked">Locked</span>;
+      } else if ($previous_score) {
         $span_status =
           <span class="fb-status status--yours">{tr('Captured')}</span>;
       } else {
@@ -37,13 +43,14 @@ class ListviewController extends ModuleController {
           data-category={$category->getCategory()}
           data-status={$previous_score ? 'completed' : 'remaining'}
           data-captured={$previous_score ? SessionUtils::sessionTeamName() : null}
-          class={$previous_score ? 'captured--you' : ''}
+          class={$previous_score ? 'captured--you' : ($unlocked ? '' : 'locked')}
           role="button"
           tabindex="0">
           <td style="width: 38%;">
-            {$country->getName()} ({$level->getTitle()})
+            {$country->getName()}
+            {$unlocked ? ' ('.$level->getTitle().')' : ' 🔒'}
           </td>
-          <td style="width: 10%;">{strval($level->getPoints())}</td>
+          <td style="width: 10%;">{$unlocked ? strval($level->getPoints()) : '—'}</td>
           <td style="width: 22%;">{$category->getCategory()}</td>
           <td style="width: 30%;">{$span_status}</td>
         </tr>

@@ -709,6 +709,7 @@ function createFlagLevel(section) {
   var points = $('.level_form input[name=points]', section)[0].value;
   var hint = $('.level_form input[name=hint]', section)[0].value;
   var penalty = $('.level_form input[name=penalty]', section)[0].value;
+  var requires_level_id = $('.level_form select[name=requires_level_id]', section)[0].value;
 
   var create_data = {
     action: 'create_flag',
@@ -719,7 +720,8 @@ function createFlagLevel(section) {
     category_id: category_id,
     points: points,
     hint: hint,
-    penalty: penalty
+    penalty: penalty,
+    requires_level_id: requires_level_id
   };
   sendAdminRequest(create_data, true);
 }
@@ -807,6 +809,7 @@ function updateFlagLevel(section) {
   var hint = $('.level_form input[name=hint]', section)[0].value;
   var penalty = $('.level_form input[name=penalty]', section)[0].value;
   var level_id = $('.level_form input[name=level_id]', section)[0].value;
+  var requires_level_id = $('.level_form select[name=requires_level_id]', section)[0].value;
 
   var update_data = {
     action: 'update_flag',
@@ -820,6 +823,7 @@ function updateFlagLevel(section) {
     bonus_dec: bonus_dec,
     hint: hint,
     penalty: penalty,
+    requires_level_id: requires_level_id,
     level_id: level_id
   };
   sendAdminRequest(update_data, false);

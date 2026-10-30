@@ -90,6 +90,7 @@ class CountryModalController extends ModalController {
                 </textarea>
                 <br />
                 <div class="capture-links"></div>
+                <div class="capture-progress-message" role="status"></div>
                 <br />
                 <fieldset class="form-set">
                   <div class="answer_no_bases form-el el--text">

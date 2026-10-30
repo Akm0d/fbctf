@@ -105,6 +105,31 @@ class AdminController extends Controller {
     return $select;
   }
 
+  private async function genGeneratePrerequisiteSelect(
+    ?int $selected,
+    ?int $exclude_level_id,
+  ): Awaitable<:xhp> {
+    $select =
+      <select class="not_configuration" name="requires_level_id" disabled={true}>
+        <option value="0" selected={$selected === null}>None</option>
+      </select>;
+    $levels = await Level::genAllLevels();
+    foreach ($levels as $level) {
+      if ($exclude_level_id !== null && $level->getId() === $exclude_level_id) {
+        continue;
+      }
+      $country = await Country::gen($level->getEntityId());
+      $select->appendChild(
+        <option
+          value={strval($level->getId())}
+          selected={$selected === $level->getId()}>
+          {$country->getName()} — {$level->getTitle()}
+        </option>,
+      );
+    }
+    return $select;
+  }
+
   private async function genGenerateFilterCategoriesSelect(): Awaitable<:xhp> {
     $categories = await Category::genAllCategories();
     $select = <select class="not_configuration" name="category_filter" />;
@@ -2020,10 +2045,12 @@ class AdminController extends Controller {
       $countries_select,
       $level_categories_select,
       $filter_categories_select,
+      $prerequisite_select,
     ) = await \HH\Asio\va(
       $this->genGenerateCountriesSelect(0),
       $this->genGenerateLevelCategoriesSelect(0),
       $this->genGenerateFilterCategoriesSelect(),
+      $this->genGeneratePrerequisiteSelect(null, null),
     );
 
     $adminsections =
@@ -2095,6 +2122,10 @@ class AdminController extends Controller {
                     <label>{tr('Hint Penalty')}</label>
                     <input name="penalty" type="text" />
                   </div>
+                </div>
+                <div class="form-el el--block-label el--full-text">
+                  <label>Prerequisite level</label>
+                  {$prerequisite_select}
                 </div>
               </div>
             </div>
@@ -2355,9 +2386,13 @@ class AdminController extends Controller {
         }
       }
 
-      list($countries_select, $level_categories_select) = await \HH\Asio\va(
+      list($countries_select, $level_categories_select, $prerequisite_select) = await \HH\Asio\va(
         $this->genGenerateCountriesSelect($flag->getEntityId()),
         $this->genGenerateLevelCategoriesSelect($flag->getCategoryId()),
+        $this->genGeneratePrerequisiteSelect(
+          $flag->getRequiresLevelId(),
+          $flag->getId(),
+        ),
       ); // TODO: Combine Awaits
 
       $adminsections->appendChild(
@@ -2418,6 +2453,10 @@ class AdminController extends Controller {
                     <label for="">{tr('Categories')}</label>
                     {$level_categories_select}
                   </div>
+                </div>
+                <div class="form-el el--block-label el--full-text">
+                  <label>Prerequisite level</label>
+                  {$prerequisite_select}
                 </div>
               </div>
               <div class="col col-pad col-1-2">

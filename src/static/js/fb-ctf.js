@@ -917,6 +917,20 @@ function setupInputListeners() {
     function launchCaptureModal(country) {
       var data = FB_CTF.data.COUNTRIES[country];
 
+      if (data && data.locked) {
+        Modal.loadPopup('p=country&modal=capture', 'country-capture', function() {
+          var $lockedContainer = $('.fb-modal-content');
+          $('.country-name', $lockedContainer).text(country);
+          $('.country-title', $lockedContainer).text('Locked');
+          $('.capture-text', $lockedContainer).text(
+            'Capture the previous scavenger-hunt country to unlock this challenge.'
+          );
+          $('.country-capture-form fieldset, .form-el--multiple-actions, .modal-footer', $lockedContainer).addClass('completely-hidden');
+          $('.js-close-modal', $lockedContainer).on('click', removeCaptured);
+        });
+        return;
+      }
+
       // Contests are first-class map levels, but their team entry and voting
       // flow lives on the mobile-friendly contest page rather than the flag
       // answer modal.
@@ -985,6 +999,14 @@ function setupInputListeners() {
         $('.country-owner', $container).text(owner);
         ScanInput.configureForCategory($container, category);
         MigiChat.configure($container, !!(data && data.migi_chat), level_id);
+
+        if (data && data.next_destinations instanceof Array && data.next_destinations.length) {
+          $('.capture-progress-message', $container).text(
+            'Next destination: ' + data.next_destinations.join(', ').toUpperCase()
+          );
+        } else if (data && data.completion_message) {
+          $('.capture-progress-message', $container).text(data.completion_message);
+        }
 
         if (completed instanceof Array) {
           $.each(completed, function() {
@@ -1082,6 +1104,9 @@ function setupInputListeners() {
                 } 
               });
               $('.js-trigger-score', $container).text('YES!');
+              if (responseData.message) {
+                $('.capture-progress-message', $container).text(responseData.message);
+              }
               $('input[name=answer]', $container).css("background-color", "#1f7a1f");
               if (!isMigiVault) {
                 $('.answer_no_bases > .fb-cta.cta--yellow.js-trigger-score').removeClass('js-trigger-score');
@@ -1093,7 +1118,9 @@ function setupInputListeners() {
                   $('.answer_no_bases').addClass('completely-hidden');
                   $('.answer_captured').removeClass('completely-hidden');
                 }
-                $('.js-close-modal', $container).click();
+                if (!responseData.message || responseData.message === 'Success') {
+                  $('.js-close-modal', $container).click();
+                }
               }, 2000);
             } else {
               // TODO: Make this a modal
@@ -1862,8 +1889,9 @@ function setupInputListeners() {
         if (data) {
           // add the category
           $group.attr('data-category', data.category);
+          $group.toggleClass('challenge-locked', !!data.locked);
           // add the status
-          var completed_list = data.completed;
+          var completed_list = data.completed || [];
           var data_status = (completed_list.indexOf(FB_CTF.data.CONF.currentTeam) >= 0) ? 'completed' : 'remaining';
           $group.attr('data-status', data_status);
         }

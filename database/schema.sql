@@ -47,10 +47,14 @@ CREATE TABLE `levels` (
   `flag` text NOT NULL,
   `hint` text NOT NULL,
   `penalty` int(11) NOT NULL,
+  `requires_level_id` int(11) DEFAULT NULL,
+  `completion_message` text DEFAULT NULL,
   `created_ts` timestamp NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   KEY `entity_id` (`entity_id`),
-  KEY `active` (`active`)
+  KEY `active` (`active`),
+  KEY `requires_level_id` (`requires_level_id`),
+  CONSTRAINT `levels_requires_level_fk` FOREIGN KEY (`requires_level_id`) REFERENCES `levels` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB AUTO_INCREMENT=1 DEFAULT CHARSET=latin1;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
